@@ -171,32 +171,30 @@ Após a instalação:
 
   
 ## 🗃 Histórico de lançamentos
-* 0.1.1 - 25/03/2025
-   * CONCLUÍDO: Tela com função Principal.
-* 0.2.2 - 25/03/2025
-   * CONCLUÍDO: Implementação do CRUD.
-* 0.3.3 - 25/03/2025
-   * CONCLUÍDO: Testes de qualidade de software.
-* 0.4.4 - 25/03/2025
-   * CONCLUÍDO:  Wireframe e Storyboard do projeto.
-* 0.5.5 - 22/04/2025
-   * CONCLUÍDO: Criptografia.
-* 0.6.6 -  22/04/2025
-   * CONCLUÍDO: Implementação do banco de dados.
-* 0.7.7 -  22/04/2025
-   * CONCLUÍDO: Teste de sistema.
-* 0.8.8 -  22/04/2025
-   * CONCLUÍDO: Mockup Prototipado e navegável de todas as telas.
-* 0.9.9 -  22/04/2025
-   * CONCLUÍDO: Entrega do aplicativo concluido.
-* 0.10.10 -  18/05/2025
-   * CONCLUÍDO: Implementação da rotina de verificação e restart automático do servidor.
-* 0.11.11 -  18/05/2025
-     * CONCLUÍDO: Qualidade de Software.
-* 0.12.12 -  18/05/2025
-    * CONCLUÍDO: Análise heurística e de usabilidade do projeto.
-* 0.13.13 -  18/05/2025
-   * CONCLUÍDO: Projeto concluído.
+* 0.1.1 - 22/09/2025
+   * CONCLUÍDO: Entrega 1 - Project Charter (Gestão de Projetos).
+* 0.2.2 -  22/09/2025
+   * CONCLUÍDO: Entrega 1 - WBS. (Gestão de projetos).
+* 0.3.3 -  22/09/2025
+   * Em Andamento: Entrega 1 - Arquivo do COLAB com os scripts e um PDF ou WORD (BIG DATA).
+* 0.4.4 -  22/09/2025
+   * Em Andamento:  Entrega 1 - Entregar o documento do projeto com dados sobre o mercado abordado, embasando a sua solução para o problema e demonstrando a oportunidade.(Empreendedorismo)
+* 0.5.5 -  22/09/2025
+   * Em Andamento: Entrega 1 - Aplicação de um algoritmo de Inteligência Artificial no PI. (Inteligência Artificial).
+* 0.6.6 -   22/09/2025
+   * Em Andamento: Entrega 1 - Levantamento de riscos, vulnerabilidades e ameaças registrado em documento (Cibersegurança).
+* 0.7.7 -   10/10/2025
+   * Em Andamento: Entrega 2 - Rede Pert-CPM (Gestão de Projetos).
+* 0.8.8 -  10/10/2025
+   * Em Andamento: Entrega 2 - Arquivo do COLAB com os scripts (Big data).
+* 0.9.9 -  10/10/2025
+   * Em Andamento: Entrega 2 - Complementar/adicionar o documento do projeto a persona do cliente (Empreendedorismo).
+* 0.10.10 -  10/10/2025
+   * Em Andamento: Entrega 2 - Aplicação de um modelo de Machine Learning no PI modelo ML (Inteligência Artificial).
+* 0.11.11 -  10/10/2025
+     * Em Andamento: Entrega 2 - Criação de uma tabela riscos x gut com os riscos levantado na etapa anterior e pontuações de criticidade (Cibersegurança).
+* 0.13.13 -  10/10/2025
+   * Em Andamento: Projeto concluído.
  
 
 ---
