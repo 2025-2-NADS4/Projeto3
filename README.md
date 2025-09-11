@@ -207,8 +207,8 @@ Este é um projeto acadêmico, mas você pode contribuir com feedback ou sugest�
 ## 📋 Licença/License
 
 <p xmlns:cc="http://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/">
-<a property="dct:title" rel="cc:attributionURL" href="https://github.com/2025-1-NADS3/Projeto1">Bank Pay Academy</a> by
-<a href="https://github.com/2025-1-NADS3/Projeto1">Alexandra Christine, Gabrielly Cintra, Hebert Esteves e José Bento</a> is licensed under
+<a property="dct:title" rel="cc:attributionURL" href="https://github.com/2025-2-NADS4/Projeto3/">Cannoli Intelligence</a> by
+<a href="https://github.com/2025-2-NADS4/Projeto3/">Alexandra Christine, Carlos, Hebert Esteves e José Bento</a> is licensed under
 <a href="https://creativecommons.org/licenses/by/4.0/?ref=chooser-v1" target="_blank" rel="license noopener noreferrer" style="display:inline-block;">
 CC BY 4.0
 <img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;"
