@@ -7,7 +7,7 @@
 
 ## 🎓 Cannoli Intelligence
 
-## 👥 Integrantes: <a href="https://www.linkedin.com/in/alexandra-christine-silva-590092257">Alexandra Christine </a>,, <a href="https://linkedin.com/in/hebert-/">Hebert dos Reis Esteves	</a> e <a href="https://www.linkedin.com/in/jos%C3%A9-almeida-80063a256/">José Bento Almeida Gama </a>.
+## 👥 Integrantes: <a href="https://www.linkedin.com/in/alexandra-christine-silva-590092257">Alexandra Christine </a>,  <a href="https://www.linkedin.com/in/carlos-augusto-1145861a3">Carlos Augusto Santos De Almeida	</a> , <a href="https://linkedin.com/in/hebert-/">Hebert dos Reis Esteves	</a> e <a href="https://www.linkedin.com/in/jos%C3%A9-almeida-80063a256/">José Bento Almeida Gama </a>.
 
 
 ## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/francisco-escobar/">Francisco Escobar</a>,<a href="https://www.linkedin.com/in/vheltai/">Vinicius Heltai</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Jefferson Silva</a>.
