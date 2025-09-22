@@ -1,0 +1,42 @@
+{
+  "data_referencia": "2025-09-21",
+  "heuristica": "eficiencia",
+  "orcamento_total": 1200.0,
+  "priorizar": [
+    {
+      "campanhaId": 3,
+      "nome": "Campanha_3",
+      "score": 0.3104852699299716,
+      "orcamentoSugerido": 547.53
+    },
+    {
+      "campanhaId": 4,
+      "nome": "Campanha_4",
+      "score": 0.1474675279481168,
+      "orcamentoSugerido": 100.0
+    },
+    {
+      "campanhaId": 6,
+      "nome": "Campanha_6",
+      "score": 0.08173406976253288,
+      "orcamentoSugerido": 152.94
+    }
+  ],
+  "ajustar_ou_pausar": [
+    {
+      "campanhaId": 1,
+      "nome": "Campanha_1",
+      "motivo": "baixo score / alto custo"
+    },
+    {
+      "campanhaId": 2,
+      "nome": "Campanha_2",
+      "motivo": "baixo score / alto custo"
+    },
+    {
+      "campanhaId": 5,
+      "nome": "Campanha_5",
+      "motivo": "baixo score / alto custo"
+    }
+  ]
+}

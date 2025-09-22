@@ -1,0 +1,55 @@
+Cannoli Intelligence – IA/ML (dados simulados)
+1) Alertas (queda média móvel 7d, 30%):
+- Total de alertas gerados: 46
+- Exemplo primeira linha:
+      date  campanhaId       nome                               motivo
+2025-07-04           4 Campanha_4 Cliques 299 abaixo de 329 (média 7d)
+
+2) Regressão Linear – previsão de conversões (features de defasagem 1 dia):
+- MAE  : 65.793
+- RMSE : 88.305
+- R²    : 0.668
+
+3) Busca Gulosa – recomendações (heurística: eficiência = conversões/custo, orçamento R$ 1200):
+{
+  "data_referencia": "2025-09-21",
+  "heuristica": "eficiencia",
+  "orcamento_total": 1200.0,
+  "priorizar": [
+    {
+      "campanhaId": 3,
+      "nome": "Campanha_3",
+      "score": 0.3104852699299716,
+      "orcamentoSugerido": 547.53
+    },
+    {
+      "campanhaId": 4,
+      "nome": "Campanha_4",
+      "score": 0.1474675279481168,
+      "orcamentoSugerido": 100.0
+    },
+    {
+      "campanhaId": 6,
+      "nome": "Campanha_6",
+      "score": 0.08173406976253288,
+      "orcamentoSugerido": 152.94
+    }
+  ],
+  "ajustar_ou_pausar": [
+    {
+      "campanhaId": 1,
+      "nome": "Campanha_1",
+      "motivo": "baixo score / alto custo"
+    },
+    {
+      "campanhaId": 2,
+      "nome": "Campanha_2",
+      "motivo": "baixo score / alto custo"
+    },
+    {
+      "campanhaId": 5,
+      "nome": "Campanha_5",
+      "motivo": "baixo score / alto custo"
+    }
+  ]
+}
