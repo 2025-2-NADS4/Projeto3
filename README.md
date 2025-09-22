@@ -13,11 +13,8 @@
 ## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/francisco-escobar/">Eduardo Savino</a>,<a href="https://www.linkedin.com/in/vheltai/">Lucy Mary</a>, <a href="https://www.linkedin.com/in/jefferson-o-silva/">Edson Barbeiro</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Ronaldo Araujo</a>.
 
 ## ✏ Introdução
+![Imagem do WhatsApp de 2025-09-21 à(s) 21 37 37_01bf9274](https://github.com/user-attachments/assets/9b7cb452-2e68-4a13-8279-b19bddc4f46d)
 
-
-<div align="center">
-  <img src="" alt="image" />
-</div>
   
 
 ## 🔎 Descrição
