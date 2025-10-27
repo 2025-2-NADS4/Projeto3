@@ -56,7 +56,7 @@ const LoginPage = () => {
             if (perfil === "ADMIN") {
               navigate("/");
             } else if (perfil === "ESTABELECIMENTO") {
-              navigate("/dashboardLoja");
+              navigate("/campanhas");
             } else {
               navigate("/dashboard");
             }
