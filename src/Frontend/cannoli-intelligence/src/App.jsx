@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import LoginPage from "./pages/LoginPage/LoginPage";
 import { Routes, Route, Navigate } from "react-router-dom";
+import CampaignsEstab from "./pages/CampaignsEstab/CampaignsEstab";
 import './App.css'
 import "./styles.css";
 
@@ -12,7 +13,8 @@ function App() {
     <>
       <div>
             <Routes>
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<LoginPage />} />
+                <Route path="/campanhas" element={<CampaignsEstab />} />
             </Routes>
         </div>
     </>
