@@ -1,0 +1,96 @@
+:root {
+  --bg0:#0b0f15;
+  --bg1:#0e141c;
+  --panel:#111826;
+  --ink:#ecf1f8;
+  --accent:#ff7a00;
+  --ring:#223043;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 800px at 0% 0%, #0f1823 0%, var(--bg0) 40%, var(--bg1) 100%);
+  font-family: "Inter", sans-serif;
+  color: var(--ink);
+}
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 240px;
+  height: 100vh;
+  background: linear-gradient(180deg, rgba(19,25,35,.9), rgba(13,17,23,.9));
+  border-right: 1px solid var(--ring);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.4);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.sidebar-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(255,122,0,.3);
+}
+
+.sidebar-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.sidebar-title small {
+  display: block;
+  color: #cbd6e8;
+  font-size: 13px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 122, 0, 0.1);
+  color: var(--accent);
+}
+
+.nav-item.active {
+  background: var(--accent);
+  color: #10141b;
+}
+
+.header {
+  margin-left: 240px;
+  padding: 20px 30px;
+  border-bottom: 1px solid var(--ring);
+  background: rgba(15, 21, 30, 0.8);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
