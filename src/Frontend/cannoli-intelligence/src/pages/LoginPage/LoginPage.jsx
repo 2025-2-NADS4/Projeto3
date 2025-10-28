@@ -54,9 +54,9 @@ const LoginPage = () => {
 
           setTimeout(() => {
             if (perfil === "ADMIN") {
-              navigate("/");
+              navigate("/campanhasAdmin");
             } else if (perfil === "ESTABELECIMENTO") {
-              navigate("/campanhas");
+              navigate("/campanhasEstab");
             } else {
               navigate("/dashboard");
             }
