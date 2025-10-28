@@ -48,18 +48,20 @@ const LoginPage = () => {
       .then((res) => {
         if (res.status === 200) {
           const { perfil, token } = res.data;
+
           localStorage.setItem("userToken", token);
+          localStorage.setItem("userPerfil", perfil.toLowerCase());
+
           setMessage("Login realizado com sucesso!");
           setMessageType("success");
 
           setTimeout(() => {
             if (perfil === "ADMIN") {
-              navigate("/campanhasAdmin");
+              navigate("/campanhas/admin");
             } else if (perfil === "ESTABELECIMENTO") {
-              navigate("/campanhasEstab");
-            } else {
-              navigate("/dashboard");
+              navigate("/campanhas/estab");
             }
+            
           }, 800);
         }
       })
