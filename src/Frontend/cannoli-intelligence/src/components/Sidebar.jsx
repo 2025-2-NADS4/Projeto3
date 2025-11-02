@@ -36,7 +36,10 @@ export default function Sidebar() {
               Campanhas
             </NavLink>
             <NavLink to="/queue/estab" className="nav-item">
-              Campaign Queue
+              Engajamento das Mensagens
+            </NavLink>
+            <NavLink to="/clientes/estab" className="nav-item">
+              Clientes
             </NavLink>
           </>
         )}
@@ -47,20 +50,13 @@ export default function Sidebar() {
               Campanhas
             </NavLink>
             <NavLink to="/queue/admin" className="nav-item">
-              Campaign Queue
+              Engajamento das Mensagens
+            </NavLink>
+            <NavLink to="/clientes/admin" className="nav-item">
+              Clientes
             </NavLink>
           </>
         )}
-
-        <NavLink to="/clientes" className="nav-item">
-          Clientes
-        </NavLink>
-        <NavLink to="/produtos" className="nav-item">
-          Produtos
-        </NavLink>
-        <NavLink to="/feedbacks" className="nav-item">
-          Feedbacks
-        </NavLink>
       </nav>
 
       <div className="sidebar-footer">
