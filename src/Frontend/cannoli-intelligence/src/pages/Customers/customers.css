@@ -1,0 +1,103 @@
+.heatmap {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: 200px;
+  gap: 2px;
+  background: #0b1118;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.heat-cell {
+  flex: 1;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+.heat-cell:hover {
+  transform: scaleY(1.1);
+  background: #ff7a00 !important;
+}
+
+.birthday-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+.birthday-list li {
+  background: #0b1118;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid #223043;
+  color: #eaf2ff;
+}
+
+.heatmap-wrap { display:flex; flex-direction:column; gap:10px; }
+
+.heatmap-legend {
+  display:grid;
+  grid-template-columns: 64px repeat(24, 1fr);
+  gap:4px;
+  align-items:center;
+}
+.heatmap-legend .hm-hour {
+  font-size: 11px;
+  color: #cdd6e4;
+  text-align: center;
+}
+
+.heatmap-grid { display:flex; flex-direction:column; gap:6px; }
+.hm-row {
+  display:grid;
+  grid-template-columns: 64px repeat(24, 1fr);
+  gap:4px;
+  align-items:center;
+}
+.hm-day {
+  font-size: 12px;
+  color:#cdd6e4;
+  text-align:right;
+  padding-right:6px;
+}
+.hm-cell {
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255,122,0,0.12);
+  transition: transform .06s ease, filter .12s ease;
+}
+.hm-cell:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+  outline: 1px solid rgba(255,122,0,.3);
+}
+
+.heatmap-scale {
+  display:flex; align-items:center; gap:10px; margin-top:4px;
+  color:#cdd6e4; font-size:12px;
+}
+.heatmap-scale .scale-bar {
+  display:flex; gap:6px; align-items:center;
+}
+.heatmap-scale .scale-bar i {
+  width: 40px; height: 8px; border-radius: 4px; display:inline-block;
+}
+
+.birthday-list {
+  margin: 8px 0 0; padding-left: 18px; color:#eaf2ff;
+}
+
+.filter-chips{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 14px; }
+.chip{ background:#0b1118; border:1px solid #212b3a; color:#eaf2ff;
+  padding:6px 10px; border-radius:999px; cursor:pointer; }
+.chip.clear{ background:#201a10; border-color:#3b2a15 }
+
+.heatmap{ display:grid; gap:6px; grid-auto-rows:min-content }
+.heat-row{ display:grid; grid-template-columns: repeat(24, 1fr); gap:6px }
+.heat-cell{
+  width:100%; aspect-ratio:1/1; border-radius:4px; cursor:pointer;
+  border:1px solid rgba(255,255,255,.06);
+}
