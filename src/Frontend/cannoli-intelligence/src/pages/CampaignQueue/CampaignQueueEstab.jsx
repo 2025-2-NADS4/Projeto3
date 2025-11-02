@@ -13,7 +13,7 @@ import {
   Filler,
 } from "chart.js";
 import Sidebar from "../../components/Sidebar";
-import "../CampaignsEstab/campaigns.css";
+import "../Campaigns/campaigns.css";
 
 ChartJS.register(
   CategoryScale,

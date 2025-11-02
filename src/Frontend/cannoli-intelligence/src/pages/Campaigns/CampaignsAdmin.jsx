@@ -14,7 +14,7 @@ import {
 } from "chart.js";
 
 import Sidebar from "../../components/Sidebar";
-import "../CampaignsEstab/campaigns.css";
+import "./campaigns.css";
 
 ChartJS.register(
   CategoryScale,
