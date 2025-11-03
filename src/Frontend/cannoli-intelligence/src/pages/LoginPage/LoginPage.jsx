@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./login.css";
-import logoCannoli from "../../assets/img/logo_cannoli.jpg"; 
+import logoCannoli from "../../assets/img/logo-cannoli-intelligence.png"; 
 
 const url = "http://localhost:3000/auth"; 
 
@@ -61,7 +61,6 @@ const LoginPage = () => {
             } else if (perfil === "ESTABELECIMENTO") {
               navigate("/campanhas/estab");
             }
-            
           }, 800);
         }
       })
@@ -79,23 +78,34 @@ const LoginPage = () => {
 
   return (
     <div className="center">
-      <div className="card" role="dialog" aria-labelledby="title" aria-describedby="subtitle">
-        <div className="brand">
+      <div
+        className="card"
+        role="dialog"
+        aria-labelledby="title"
+        aria-describedby="subtitle"
+      >
+        
+        <div className="brand only-logo">
           <img src={logoCannoli} alt="Logo Cannoli Intelligence" />
-          <div className="txt">
-            <h1 id="title">Cannoli</h1>
-            <small>Intelligence</small>
-          </div>
         </div>
 
         <div className="headline">
           <h2>
             Bem-vindo de volta <span aria-hidden="true">👋</span>
           </h2>
-          <p id="subtitle">Faça login para acessar o painel do Cannoli Intelligence</p>
+          <p id="subtitle">
+            Faça login para acessar o painel do Cannoli Intelligence
+          </p>
         </div>
 
-        {message && <div className={`error ${messageType === "success" ? "ok" : ""}`} style={{ display: "block" }}>{message}</div>}
+        {message && (
+          <div
+            className={`error ${messageType === "success" ? "ok" : ""}`}
+            style={{ display: "block" }}
+          >
+            {message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="email">Email</label>
@@ -127,7 +137,9 @@ const LoginPage = () => {
             <label className="remember">
               <input type="checkbox" id="remember" /> Lembrar de mim
             </label>
-            <a className="link" href="#">Esqueceu sua senha?</a>
+            <a className="link" href="#">
+              Esqueceu sua senha?
+            </a>
           </div>
 
           <button className="btn" type="submit" disabled={loading}>
