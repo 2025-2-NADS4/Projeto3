@@ -1,16 +1,15 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./layout.css";
-import logo from "../assets/img/logo_cannoli.jpg";
+import logo from "../assets/img/logo-cannoli-intelligence.png";
 
 export default function Sidebar() {
   const [perfil, setPerfil] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Busca o perfil do usuário salvo no login
-    const tipo = localStorage.getItem("userPerfil");
-    if (tipo) setPerfil(tipo.toLowerCase());
+    const tipo = (localStorage.getItem("userPerfil") || "").toLowerCase();
+    setPerfil(tipo);
   }, []);
 
   function logout() {
@@ -19,41 +18,45 @@ export default function Sidebar() {
     navigate("/");
   }
 
+  const navClass = ({ isActive }) => "nav-item" + (isActive ? " active" : "");
+
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
-        <img src={logo} alt="Logo" className="sidebar-logo" />
-        <div className="sidebar-title">
-          <h2>Cannoli</h2>
-          <small>Intelligence</small>
-        </div>
+      <div className="sidebar-brand" aria-label="Cannoli Intelligence">
+        <img src={logo} alt="Cannoli Intelligence" className="sidebar-logo" />
       </div>
-      
+
       <nav className="sidebar-nav">
         {perfil === "estabelecimento" && (
           <>
-            <NavLink to="/campanhas/estab" className="nav-item">
+            <NavLink to="/campanhas/estab" className={navClass}>
               Campanhas
             </NavLink>
-            <NavLink to="/queue/estab" className="nav-item">
+            <NavLink to="/queue/estab" className={navClass}>
               Engajamento das Mensagens
             </NavLink>
-            <NavLink to="/clientes/estab" className="nav-item">
+            <NavLink to="/clientes/estab" className={navClass}>
               Clientes
+            </NavLink>
+            <NavLink to="/pedidos/estab" className={navClass}>
+              Pedidos
             </NavLink>
           </>
         )}
 
         {perfil === "admin" && (
           <>
-            <NavLink to="/campanhas/admin" className="nav-item">
+            <NavLink to="/campanhas/admin" className={navClass}>
               Campanhas
             </NavLink>
-            <NavLink to="/queue/admin" className="nav-item">
+            <NavLink to="/queue/admin" className={navClass}>
               Engajamento das Mensagens
             </NavLink>
-            <NavLink to="/clientes/admin" className="nav-item">
+            <NavLink to="/clientes/admin" className={navClass}>
               Clientes
+            </NavLink>
+            <NavLink to="/pedidos/admin" className={navClass}>
+              Pedidos
             </NavLink>
           </>
         )}
