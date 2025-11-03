@@ -7,6 +7,8 @@ import CampaignQueueEstab from './pages/CampaignQueue/CampaignQueueEstab';
 import CampaignQueueAdmin from './pages/CampaignQueue/CampaignQueueAdmin';
 import CustomersEstab from './pages/Customers/CustomersEstab';
 import CustomersAdmin from './pages/Customers/CustomersAdmin';
+import OrdersEstab from './pages/Orders/OrdersEstab';
+import OrdersAdmin from './pages/Orders/OrdersAdmin';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -22,6 +24,8 @@ function App() {
                 <Route path="/queue/admin" element={<CampaignQueueAdmin />} />
                 <Route path="/clientes/estab" element={<CustomersEstab />} />
                 <Route path="/clientes/admin" element={<CustomersAdmin />} />
+                <Route path="/pedidos/estab" element={<OrdersEstab />} />
+                <Route path="/pedidos/admin" element={<OrdersAdmin />} />
             </Routes>
         </div>
     </>
