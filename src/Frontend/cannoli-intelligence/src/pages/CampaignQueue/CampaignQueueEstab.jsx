@@ -128,7 +128,7 @@ export default function CampaignQueueEstab() {
       <div className="main">
         <div className="wrap">
           <div className="topbar">
-            <h1>Dashboard - CampaignQueue ({lojaNome})</h1>
+            <h1>Dashboard - Engajamento das Mensagens ({lojaNome})</h1>
             <div className="filters">
               <div className="field">
                 <label>Mês inicial</label>
