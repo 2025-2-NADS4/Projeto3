@@ -153,9 +153,12 @@ export async function getClientesAdmin(req, res) {
            FROM customer`
         );
 
-    // Filtros auxiliares para o Site
+    // Filtros auxiliares para o site
     const [distinctStores] = await db.execute(
-      `SELECT DISTINCT companyId AS storeId FROM customer WHERE companyId IS NOT NULL ORDER BY companyId`
+      `SELECT DISTINCT companyId AS storeId
+         FROM customer
+        WHERE companyId IS NOT NULL
+        ORDER BY companyId`
     );
 
     // Pega meses únicos da base
@@ -166,20 +169,29 @@ export async function getClientesAdmin(req, res) {
     `);
 
     // Filtro de período
-    const start = mesInicio ? new Date(`${mesInicio}-01`) : null;
-    const end = mesFim ? new Date(`${mesFim}-01`) : null;
-    const filtered = clientes.filter((c) => {
+    // Função para adicionar 1 mês a 'YYYY-MM'
+    function proximoMes(yyyymm) {
+      const [ano, mes] = yyyymm.split("-").map(Number);
+      const d = new Date(ano, mes - 1, 1);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    }
+
+    const inicio = mesInicio ? new Date(`${mesInicio}-01`) : null;
+    const fimExclusivo = mesFim ? proximoMes(mesFim) : null;
+
+    // Filtro inclusivo pelo intervalo [inicio, fimExclusivo)
+    const filtrados = clientes.filter((c) => {
       const d = new Date(c.createdAt);
-      if (start && d < start) return false;
-      if (end && d >= end) return false;
+      if (inicio && d < inicio) return false;
+      if (fimExclusivo && d >= fimExclusivo) return false;
       return true;
     });
 
-    // KPIs
-    const total = filtered.length;
+    // KPI
+    const total = filtrados.length;
     const isAtivo = (s) => /\bativo\b/i.test(s || "");
-    const ativos = filtered.filter(c => isAtivo(c.status_desc)).length;
-
+    const ativos = filtrados.filter((c) => isAtivo(c.status_desc)).length;
     const inativos = total - ativos;
     const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
 
@@ -187,15 +199,15 @@ export async function getClientesAdmin(req, res) {
     const [pedidos] = storeId
       ? await db.execute(
           `SELECT customer, COUNT(*) AS qtd
-           FROM \`order\`
-           WHERE companyId = ?
-           GROUP BY customer`,
+             FROM \`order\`
+            WHERE companyId = ?
+            GROUP BY customer`,
           [storeId]
         )
       : await db.execute(
           `SELECT customer, COUNT(*) AS qtd
-           FROM \`order\`
-           GROUP BY customer`
+             FROM \`order\`
+            GROUP BY customer`
         );
 
     const clientesComMaisDe1Pedido = pedidos.filter((p) => p.qtd > 1).length;
@@ -203,14 +215,14 @@ export async function getClientesAdmin(req, res) {
       ? Math.round((clientesComMaisDe1Pedido / total) * 100)
       : 0;
 
-    // Gráficos e análises
+    // Gráficos
     const status = {};
     const genero = {};
     const faixas = {};
     const aniversariantes = [];
     const mesAtual = new Date().getMonth();
 
-    for (const c of filtered) {
+    for (const c of filtrados) {
       const s = c.status_desc || "Não informado";
       const g = c.gender_clean || "Não informado";
       const idade = calcularIdade(c.dateOfBirth);
@@ -226,30 +238,32 @@ export async function getClientesAdmin(req, res) {
       }
     }
 
-    // Heatmap 7x24
+    // Heatmap 7x24 de pedidos (por dia da semana x hora)
     const [heatRows] = storeId
       ? await db.execute(
           `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
-           FROM \`order\`
-           WHERE companyId = ?
-           GROUP BY dow, hora
-           ORDER BY dow, hora`,
+             FROM \`order\`
+            WHERE companyId = ?
+            GROUP BY dow, hora
+            ORDER BY dow, hora`,
           [storeId]
         )
       : await db.execute(
           `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
-           FROM \`order\`
-           GROUP BY dow, hora
-           ORDER BY dow, hora`
+             FROM \`order\`
+            GROUP BY dow, hora
+            ORDER BY dow, hora`
         );
 
     const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     for (const r of heatRows) {
-      const dia = r.dow === 1 ? 6 : r.dow - 2;
-      if (dia >= 0 && dia < 7 && r.hora >= 0 && r.hora < 24)
+      const dia = r.dow === 1 ? 6 : r.dow - 2; 
+      if (dia >= 0 && dia < 7 && r.hora >= 0 && r.hora < 24) {
         heatmap[dia][r.hora] = Number(r.qtd);
+      }
     }
 
+    // Resposta em Json
     res.json({
       kpis: { total, ativos, inativos, pctAtivos, taxaRecompra },
       graficos: { status, genero, faixas },
