@@ -135,7 +135,7 @@ export default function CampaignQueueAdmin() {
       <div className="main">
         <div className="wrap">
           <div className="topbar">
-            <h1>Dashboard - CampaignQueue (Admin)</h1>
+            <h1>Dashboard - Engajamento das Mensagens (Admin)</h1>
             <div className="filters">
               <div className="field">
                 <label>Estabelecimento (storeId)</label>
