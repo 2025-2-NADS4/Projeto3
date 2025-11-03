@@ -105,11 +105,13 @@ body {
   font-size: 34px;
   font-weight: 800;
   line-height: 1.15;
+  text-align: center;
 }
 
 .headline p {
   margin: 0;
   color: var(--muted);
+  text-align: center;
 }
 
 form {
@@ -218,4 +220,22 @@ label {
   background: rgba(0, 128, 0, 0.2);
   border-color: #37c76b;
   color: #c7ffd9;
+}
+
+.brand.only-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.brand.only-logo img {
+  background: transparent !important;
+  width: 300px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  margin: 0 auto;
+  filter: none !important; 
+  box-shadow: none !important; 
 }
