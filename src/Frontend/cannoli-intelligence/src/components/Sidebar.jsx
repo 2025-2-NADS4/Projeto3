@@ -46,6 +46,9 @@ export default function Sidebar() {
 
         {perfil === "admin" && (
           <>
+            <NavLink to="/overview/admin" className={navClass}>
+              Visão Geral
+            </NavLink>
             <NavLink to="/campanhas/admin" className={navClass}>
               Campanhas
             </NavLink>
