@@ -9,6 +9,7 @@ import CustomersEstab from './pages/Customers/CustomersEstab';
 import CustomersAdmin from './pages/Customers/CustomersAdmin';
 import OrdersEstab from './pages/Orders/OrdersEstab';
 import OrdersAdmin from './pages/Orders/OrdersAdmin';
+import AdminOverview from './pages/Admin/AdminOverview';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -26,6 +27,7 @@ function App() {
                 <Route path="/clientes/admin" element={<CustomersAdmin />} />
                 <Route path="/pedidos/estab" element={<OrdersEstab />} />
                 <Route path="/pedidos/admin" element={<OrdersAdmin />} />
+                <Route path="/overview/admin" element={<AdminOverview />} />
             </Routes>
         </div>
     </>
