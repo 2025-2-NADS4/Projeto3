@@ -11,17 +11,38 @@ export async function getPedidosEstabelecimento(req, res) {
     if (mesInicio) { where.push("createdAt >= ?"); params.push(`${mesInicio}-01`); }
     if (mesFim) { where.push("createdAt < DATE_ADD(?, INTERVAL 1 MONTH)"); params.push(`${mesFim}-01`); }
 
-    // KPIs
-    const [kpiRows] = await db.execute(`
+    const whereConcluidos = [...where, "status = 'CONCLUDED'"];
+    const paramsConcluidos = [...params];
+
+    // KPIs 
+    const [kpiGeralRows] = await db.execute(`
       SELECT
         COUNT(*) AS total_pedidos,
-        SUM(totalAmount) AS receita_total,
-        AVG(totalAmount) AS ticket_medio_geral,
-        SUM(CASE WHEN LOWER(status) LIKE '%cancel%' THEN 1 ELSE 0 END)/COUNT(*)*100 AS taxa_cancelamento
+        SUM(CASE WHEN LOWER(status) LIKE '%cancel%' THEN 1 ELSE 0 END) AS cancelados
       FROM \`order\`
       WHERE ${where.join(" AND ")}
     `, params);
-    const kpis = kpiRows[0];
+
+    const [kpiConcluidosRows] = await db.execute(`
+      SELECT
+        SUM(totalAmount) AS receita_total,
+        AVG(totalAmount) AS ticket_medio_geral
+      FROM \`order\`
+      WHERE ${whereConcluidos.join(" AND ")}
+    `, paramsConcluidos);
+
+    const total_pedidos = Number(kpiGeralRows[0]?.total_pedidos || 0);
+    const cancelados = Number(kpiGeralRows[0]?.cancelados || 0);
+    const taxa_cancelamento = total_pedidos
+      ? (cancelados / total_pedidos) * 100
+      : 0;
+
+    const kpis = {
+      total_pedidos,
+      receita_total: Number(kpiConcluidosRows[0]?.receita_total || 0),
+      ticket_medio_geral: Number(kpiConcluidosRows[0]?.ticket_medio_geral || 0),
+      taxa_cancelamento,
+    };
 
     // Pedidos por status
     const [statusRows] = await db.execute(`
@@ -43,18 +64,18 @@ export async function getPedidosEstabelecimento(req, res) {
     const [receitaMes] = await db.execute(`
       SELECT DATE_FORMAT(createdAt, '%Y-%m') AS mes, SUM(totalAmount) AS receita
       FROM \`order\`
-      WHERE ${where.join(" AND ")}
+      WHERE ${whereConcluidos.join(" AND ")}
       GROUP BY DATE_FORMAT(createdAt, '%Y-%m')
       ORDER BY mes
-    `, params);
+    `, paramsConcluidos);
 
     // Ticket médio por canal
     const [ticketCanal] = await db.execute(`
       SELECT salesChannel AS canal, AVG(totalAmount) AS ticket_medio
       FROM \`order\`
-      WHERE ${where.join(" AND ")}
+      WHERE ${whereConcluidos.join(" AND ")}
       GROUP BY salesChannel
-    `, params);
+    `, paramsConcluidos);
 
     // Tempo médio de preparo por tipo
     const [tempoMedio] = await db.execute(`
@@ -73,7 +94,7 @@ export async function getPedidosEstabelecimento(req, res) {
       ORDER BY hora
     `, params);
 
-    // Meses disponíveis (para ser utilizado nos filtros do frontend)
+    // Meses disponíveis 
     const [meses] = await db.execute(`
       SELECT DATE_FORMAT(createdAt, '%Y-%m') AS ym
       FROM \`order\`
@@ -90,8 +111,8 @@ export async function getPedidosEstabelecimento(req, res) {
         WHERE establishment_id = ?
         LIMIT 1`,
       [establishment_id]
-    )
-    const lojaNome = linhaLoja?.store_name || '(Loja sem nome)'
+    );
+    const lojaNome = linhaLoja?.store_name || "(Loja sem nome)";
 
     res.json({
       kpis,
@@ -112,9 +133,8 @@ export async function getPedidosEstabelecimento(req, res) {
   }
 }
 
-/** Utilitário: transforma 'YYYY-MM' em limites de data [início, fim) */
+// Função para transformar 'YYYY-MM' em limites de data [início, fim) */
 function intervaloMes(yyyymm) {
-  // Exemplo: "2025-07" → início: 2025-07-01 00:00:00, fim: 2025-08-01 00:00:00
   const [ano, mes] = (yyyymm || "").split("-").map(Number);
   if (!ano || !mes) return { inicio: null, fim: null };
 
@@ -171,11 +191,14 @@ export async function getPedidosAdmin(req, res) {
 
     const { clausula, valores } = montarWhere({ mesInicio, mesFim, companyId });
 
+    const clausulaConcluidos = clausula
+      ? `${clausula} AND status = 'CONCLUDED'`
+      : "WHERE status = 'CONCLUDED'";
+    const valoresConcluidos = [...valores];
+
     // KPIs
     const [[tot]] = await db.execute(
-      `SELECT COUNT(*) AS total_pedidos,
-              COALESCE(SUM(totalAmount),0) AS receita_total,
-              COALESCE(AVG(totalAmount),0) AS ticket_medio_geral
+      `SELECT COUNT(*) AS total_pedidos
          FROM \`order\` ${clausula}`,
       valores
     );
@@ -187,8 +210,16 @@ export async function getPedidosAdmin(req, res) {
       valores
     );
 
-    const totalPedidos   = Number(tot?.total_pedidos || 0);
-    const cancelados     = Number(canc?.cancelados || 0);
+    const [[totConcl]] = await db.execute(
+      `SELECT
+          COALESCE(SUM(totalAmount),0) AS receita_total,
+          COALESCE(AVG(totalAmount),0) AS ticket_medio_geral
+         FROM \`order\` ${clausulaConcluidos}`,
+      valoresConcluidos
+    );
+
+    const totalPedidos = Number(tot?.total_pedidos || 0);
+    const cancelados = Number(canc?.cancelados || 0);
     const taxa_cancelamento = totalPedidos ? (cancelados / totalPedidos) * 100 : 0;
 
     const [status] = await db.execute(
@@ -207,22 +238,24 @@ export async function getPedidosAdmin(req, res) {
       valores
     );
 
+    // Receita por mês 
     const [receitaMes] = await db.execute(
       `SELECT DATE_FORMAT(createdAt,'%Y-%m') AS mes,
               COALESCE(SUM(totalAmount),0) AS receita
-         FROM \`order\` ${clausula}
+         FROM \`order\` ${clausulaConcluidos}
         GROUP BY DATE_FORMAT(createdAt,'%Y-%m')
         ORDER BY mes`,
-      valores
+      valoresConcluidos
     );
 
+    // Ticket médio por canal 
     const [ticketCanal] = await db.execute(
       `SELECT salesChannel AS canal,
               COALESCE(AVG(totalAmount),0) AS ticket_medio
-         FROM \`order\` ${clausula}
+         FROM \`order\` ${clausulaConcluidos}
         GROUP BY salesChannel
         ORDER BY canal`,
-      valores
+      valoresConcluidos
     );
 
     const [tempoMedio] = await db.execute(
@@ -242,7 +275,7 @@ export async function getPedidosAdmin(req, res) {
       valores
     );
 
-    // Meses disponíveis (sem filtro mesmo, pra popular o select)
+    // Meses disponíveis
     const [mesesTodos] = await db.execute(
       `SELECT DISTINCT DATE_FORMAT(createdAt,'%Y-%m') AS mes
          FROM \`order\`
@@ -250,7 +283,7 @@ export async function getPedidosAdmin(req, res) {
     );
     const mesesDisponiveis = mesesTodos.map((r) => r.mes);
 
-    // Lista de lojas (id + nome)
+    // Lista de lojas
     const [lojasRows] = await db.execute(
       `SELECT DISTINCT o.companyId AS id, e.store_name AS nome
          FROM \`order\` o
@@ -268,8 +301,8 @@ export async function getPedidosAdmin(req, res) {
     res.json({
       kpis: {
         total_pedidos: totalPedidos,
-        receita_total: Number(tot?.receita_total || 0),
-        ticket_medio_geral: Number(tot?.ticket_medio_geral || 0),
+        receita_total: Number(totConcl?.receita_total || 0),
+        ticket_medio_geral: Number(totConcl?.ticket_medio_geral || 0),
         taxa_cancelamento,
       },
       graficos: {
