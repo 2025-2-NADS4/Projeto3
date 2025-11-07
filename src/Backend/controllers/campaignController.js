@@ -196,7 +196,22 @@ export const getCampanhasAdmin = async (req, res) => {
       return res.status(403).json({ erro: 'Acesso negado! Apenas administradores podem acessar.' })
     }
 
-    const { lojaId, mesInicio, mesFim, campanhaId } = req.query
+    const { lojaId: lojaIdQuery, mesInicio, mesFim, campanhaId, storeName } = req.query
+    let lojaId = lojaIdQuery
+
+    if (!lojaId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      )
+      if (loja) {
+        lojaId = loja.establishment_id
+      }
+    }
+
     const { clausula, parametros } = montarWhereAdmin({ lojaId, mesInicio, mesFim, campanhaId })
 
     const [[kpiTotal]] = await db.execute(`SELECT COUNT(*) AS total FROM campaign ${clausula}`, parametros)
@@ -240,7 +255,20 @@ export const getCampanhasAdmin = async (req, res) => {
       parametros
     )
 
-    const [lojas] = await db.execute(`SELECT DISTINCT storeId FROM campaign ORDER BY storeId`)
+    // Meses disponíveis sempre da base toda
+    const [mesesTodos] = await db.execute(
+      `SELECT DISTINCT _mes AS mes
+         FROM campaign
+        ORDER BY mes ASC`
+    )
+
+    // lista de lojas usando NOME em vez de storeId
+    const [lojas] = await db.execute(
+      `SELECT DISTINCT e.store_name
+         FROM campaign c
+         JOIN estabelecimentos e ON e.establishment_id = c.storeId
+        ORDER BY e.store_name`
+    )
 
     const [campanhasFiltro] = lojaId
       ? await db.execute(
@@ -256,6 +284,7 @@ export const getCampanhasAdmin = async (req, res) => {
     return res.json({
       meta: {
         lojaId: lojaId || null,
+        storeName: storeName || null,
         periodo: { mesInicio: mesInicio || null, mesFim: mesFim || null },
         campanhaId: campanhaId || null
       },
@@ -273,9 +302,9 @@ export const getCampanhasAdmin = async (req, res) => {
         meses: campanhasPorMes
       },
       filtros: {
-        lojas: lojas.map(l => l.storeId),
+        lojas: lojas.map(l => l.store_name),
         campanhas: campanhasFiltro.map(c => c.nomeCampanha),
-        mesesDisponiveis: campanhasPorMes.map(m => m.mes)
+        mesesDisponiveis: mesesTodos.map(m => m.mes)
       }
     })
   } catch (erro) {
