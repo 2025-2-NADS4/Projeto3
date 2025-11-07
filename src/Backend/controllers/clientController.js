@@ -138,40 +138,65 @@ export async function getClientesEstabelecimento(req, res) {
 // GET /api/admin/clientes
 export async function getClientesAdmin(req, res) {
   try {
-    const { mesInicio, mesFim, storeId } = req.query;
+    let { mesInicio, mesFim, companyId, storeName } = req.query;
+
+    if (!companyId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id, store_name
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+      if (loja) {
+        companyId = loja.establishment_id;
+        storeName = loja.store_name;
+      }
+    }
 
     // Base de clientes
-    const [clientes] = storeId
-      ? await db.execute(
-          `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
+    let clientes;
+    if (companyId) {
+      [clientes] = await db.execute(
+        `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
            FROM customer
-           WHERE companyId = ?`,
-          [storeId]
-        )
-      : await db.execute(
-          `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
+          WHERE companyId = ?`,
+        [companyId]
+      );
+    } else {
+      [clientes] = await db.execute(
+        `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
            FROM customer`
-        );
+      );
+    }
 
     // Filtros auxiliares para o site
-    const [distinctStores] = await db.execute(
-      `SELECT DISTINCT companyId AS storeId
-         FROM customer
-        WHERE companyId IS NOT NULL
-        ORDER BY companyId`
-    );
+    const [distinctStores] = await db.execute(`
+      SELECT DISTINCT c.companyId, e.store_name
+        FROM customer c
+        LEFT JOIN estabelecimentos e
+               ON e.establishment_id = c.companyId
+       WHERE c.companyId IS NOT NULL
+       ORDER BY e.store_name, c.companyId
+    `);
+
+    const lojas = distinctStores.map((s) => ({
+      id: s.companyId,
+      nome: s.store_name || s.companyId,
+    }));
 
     // Pega meses únicos da base
     const [distinctMonths] = await db.execute(`
       SELECT DISTINCT DATE_FORMAT(createdAt, '%Y-%m') AS mes
-      FROM customer
-      ORDER BY mes ASC
+        FROM customer
+       ORDER BY mes ASC
     `);
 
     // Filtro de período
     // Função para adicionar 1 mês a 'YYYY-MM'
     function proximoMes(yyyymm) {
-      const [ano, mes] = yyyymm.split("-").map(Number);
+      const [ano, mes] = (yyyymm || "").split("-").map(Number);
+      if (!ano || !mes) return null;
       const d = new Date(ano, mes - 1, 1);
       d.setMonth(d.getMonth() + 1);
       return d;
@@ -196,19 +221,22 @@ export async function getClientesAdmin(req, res) {
     const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
 
     // Taxa de recompra
-    const [pedidos] = storeId
-      ? await db.execute(
-          `SELECT customer, COUNT(*) AS qtd
-             FROM \`order\`
-            WHERE companyId = ?
-            GROUP BY customer`,
-          [storeId]
-        )
-      : await db.execute(
-          `SELECT customer, COUNT(*) AS qtd
-             FROM \`order\`
-            GROUP BY customer`
-        );
+    let pedidos;
+    if (companyId) {
+      [pedidos] = await db.execute(
+        `SELECT customer, COUNT(*) AS qtd
+           FROM \`order\`
+          WHERE companyId = ?
+          GROUP BY customer`,
+        [companyId]
+      );
+    } else {
+      [pedidos] = await db.execute(
+        `SELECT customer, COUNT(*) AS qtd
+           FROM \`order\`
+          GROUP BY customer`
+      );
+    }
 
     const clientesComMaisDe1Pedido = pedidos.filter((p) => p.qtd > 1).length;
     const taxaRecompra = total
@@ -239,29 +267,40 @@ export async function getClientesAdmin(req, res) {
     }
 
     // Heatmap 7x24 de pedidos (por dia da semana x hora)
-    const [heatRows] = storeId
-      ? await db.execute(
-          `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
-             FROM \`order\`
-            WHERE companyId = ?
-            GROUP BY dow, hora
-            ORDER BY dow, hora`,
-          [storeId]
-        )
-      : await db.execute(
-          `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
-             FROM \`order\`
-            GROUP BY dow, hora
-            ORDER BY dow, hora`
-        );
+    let heatRows;
+    if (companyId) {
+      [heatRows] = await db.execute(
+        `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
+           FROM \`order\`
+          WHERE companyId = ?
+          GROUP BY dow, hora
+          ORDER BY dow, hora`,
+        [companyId]
+      );
+    } else {
+      [heatRows] = await db.execute(
+        `SELECT DAYOFWEEK(createdAt) AS dow, HOUR(createdAt) AS hora, COUNT(*) AS qtd
+           FROM \`order\`
+          GROUP BY dow, hora
+          ORDER BY dow, hora`
+      );
+    }
 
     const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     for (const r of heatRows) {
-      const dia = r.dow === 1 ? 6 : r.dow - 2; 
+      const dia = r.dow === 1 ? 6 : r.dow - 2; // deixa Seg=0 ... Dom=6
       if (dia >= 0 && dia < 7 && r.hora >= 0 && r.hora < 24) {
         heatmap[dia][r.hora] = Number(r.qtd);
       }
     }
+
+    // Loja atual (para meta)
+    const lojaAtual =
+      companyId &&
+      (lojas.find((l) => String(l.id) === String(companyId)) || {
+        id: companyId,
+        nome: storeName || String(companyId),
+      });
 
     // Resposta em Json
     res.json({
@@ -270,8 +309,8 @@ export async function getClientesAdmin(req, res) {
       heatmap,
       aniversariantes: aniversariantes.slice(0, 10),
       meta: {
-        loja: storeId || "todas",
-        lojas: distinctStores.map((s) => s.storeId),
+        loja: lojaAtual || { id: null, nome: "Todas as lojas" },
+        lojas,
       },
       filtros: {
         mesesDisponiveis: distinctMonths.map((m) => m.mes),
