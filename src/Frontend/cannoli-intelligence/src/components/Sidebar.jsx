@@ -41,6 +41,9 @@ export default function Sidebar() {
             <NavLink to="/pedidos/estab" className={navClass}>
               Pedidos
             </NavLink>
+            <NavLink to="/clientes-risco/estab" className={navClass}>
+              Clientes em Risco
+            </NavLink>
           </>
         )}
 
@@ -60,6 +63,9 @@ export default function Sidebar() {
             </NavLink>
             <NavLink to="/pedidos/admin" className={navClass}>
               Pedidos
+            </NavLink>
+            <NavLink to="/clientes-risco/admin" className={navClass}>
+              Clientes em Risco
             </NavLink>
           </>
         )}
