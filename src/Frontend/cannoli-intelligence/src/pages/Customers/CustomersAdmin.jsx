@@ -21,8 +21,10 @@ export default function CustomersAdmin() {
   const [err, setErr] = useState("");
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
-  const [storeId, setStoreId] = useState("");
-  const [lojas, setLojas] = useState([]);
+
+  const [storeName, setStoreName] = useState("");
+  const [lojas, setLojas] = useState([]); 
+  const [lojaAtual, setLojaAtual] = useState("Todas as lojas");
 
   const [kpis, setKpis] = useState({});
   const [graficos, setGraficos] = useState({
@@ -45,24 +47,26 @@ export default function CustomersAdmin() {
 
       const {
         meta,
-        kpis,
-        graficos,
+        kpis: k,
+        graficos: g,
         heatmap: hm,
         aniversariantes: bdays,
         filtros: filtrosResp,
-      } = res.data;
+      } = res.data || {};
 
-      setKpis(kpis || {});
-      setGraficos(graficos || {});
+      setKpis(k || {});
+      setGraficos(g || {});
       setHeatmap(Array.isArray(hm) ? hm : []);
       setAniversariantes(Array.isArray(bdays) ? bdays : []);
       setFiltros(filtrosResp || { mesesDisponiveis: [] });
 
       if (meta?.lojas) setLojas(meta.lojas);
+      if (meta?.loja?.nome) setLojaAtual(meta.loja.nome);
+      else setLojaAtual("Todas as lojas");
 
       const meses = filtrosResp?.mesesDisponiveis || [];
       if (!mesInicio && meses.length) setMesInicio(meses[0]);
-      if (!mesFim && meses.length) setMesFim(meses.at(-1));
+      if (!mesFim && meses.length) setMesFim(meses[meses.length - 1]);
 
       setErr("");
     } catch (e) {
@@ -73,10 +77,13 @@ export default function CustomersAdmin() {
     }
   }
 
-  useEffect(() => { fetchData({}); }, []);
   useEffect(() => {
-    fetchData({ mesInicio, mesFim, storeId });
-  }, [mesInicio, mesFim, storeId]);
+    fetchData({});
+  }, []);
+
+  useEffect(() => {
+    fetchData({ mesInicio, mesFim, storeName });
+  }, [mesInicio, mesFim, storeName]);
 
   const accent = "#ff7a00";
   const rail = "#1f2835";
@@ -98,7 +105,11 @@ export default function CustomersAdmin() {
     maintainAspectRatio: false,
     scales: {
       x: { grid: { color: rail }, ticks: { color: "#cdd6e4" } },
-      y: { grid: { color: rail }, ticks: { color: "#cdd6e4" }, beginAtZero: true },
+      y: {
+        grid: { color: rail },
+        ticks: { color: "#cdd6e4" },
+        beginAtZero: true,
+      },
     },
     plugins: { legend: { labels: { color: "#cdd6e4" } } },
   };
@@ -106,10 +117,12 @@ export default function CustomersAdmin() {
   // Heatmap (7 x 24)
   const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
   const horas = Array.from({ length: 24 }, (_, h) => h);
+
   const { flatMax, scaleCell } = useMemo(() => {
     const values = heatmap.flat?.() || [];
     const max = values.length ? Math.max(...values) : 0;
-    const scale = (v) => (max <= 0 ? 0.12 : Math.min(1, 0.12 + (v / max) * 0.88));
+    const scale = (v) =>
+      max <= 0 ? 0.12 : Math.min(1, 0.12 + (v / max) * 0.88);
     return { flatMax: max, scaleCell: scale };
   }, [heatmap]);
 
@@ -125,10 +138,15 @@ export default function CustomersAdmin() {
               {/* Filtro de loja */}
               <div className="field">
                 <label>Estabelecimento</label>
-                <select value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+                <select
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                >
                   <option value="">Todos</option>
-                  {lojas?.map((l, i) => (
-                    <option key={i} value={l}>{l}</option>
+                  {lojas?.map((l) => (
+                    <option key={l.id} value={l.nome}>
+                      {l.nome}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -136,17 +154,27 @@ export default function CustomersAdmin() {
               {/* Filtros de mês */}
               <div className="field">
                 <label>Mês inicial</label>
-                <select value={mesInicio} onChange={(e) => setMesInicio(e.target.value)}>
+                <select
+                  value={mesInicio}
+                  onChange={(e) => setMesInicio(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
-                    <option key={i} value={m}>{m}</option>
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="field">
                 <label>Mês final</label>
-                <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
-                    <option key={i} value={m}>{m}</option>
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -175,7 +203,9 @@ export default function CustomersAdmin() {
             <div className="kpi">
               <div className="kpi_title">Lojas monitoradas</div>
               <div className="kpi_value">{lojas?.length ?? 0}</div>
-              <div className="kpi_hint">Escopo atual: {storeId || "Todas"}</div>
+              <div className="kpi_hint">
+                Escopo atual: {storeName || lojaAtual || "Todas as lojas"}
+              </div>
             </div>
           </section>
 
@@ -210,7 +240,9 @@ export default function CustomersAdmin() {
                 <div className="heatmap-legend">
                   <span />
                   {horas.map((h) => (
-                    <span key={h} className="hm-hour">{h}</span>
+                    <span key={h} className="hm-hour">
+                      {h}
+                    </span>
                   ))}
                 </div>
 
@@ -226,7 +258,9 @@ export default function CustomersAdmin() {
                             key={`${di}-${h}`}
                             className="hm-cell"
                             title={`${d} ${h}:00 — ${v} pedidos`}
-                            style={{ backgroundColor: `rgba(255,122,0,${a})` }}
+                            style={{
+                              backgroundColor: `rgba(255,122,0,${a})`,
+                            }}
                           />
                         );
                       })}
