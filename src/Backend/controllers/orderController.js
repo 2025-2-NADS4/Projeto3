@@ -133,7 +133,6 @@ function montarWhere({ companyId, mesInicio, mesFim }) {
     valores.push(companyId);
   }
 
-  // Janela de datas baseada em createdAt
   const { inicio: dataInicio } = intervaloMes(mesInicio || "");
   const { fim: dataFim } = intervaloMes(mesFim || "");
 
@@ -153,86 +152,97 @@ function montarWhere({ companyId, mesInicio, mesFim }) {
 // GET /api/admin/pedidos
 export async function getPedidosAdmin(req, res) {
   try {
-    const { mesInicio, mesFim, companyId } = req.query;
+    let { mesInicio, mesFim, companyId, storeName } = req.query;
 
-    // WHERE dinâmico
-    const { clause, vals } = montarWhere({ mesInicio, mesFim, companyId });
+    // Se veio storeName mas não veio companyId, converte nome -> id
+    if (!companyId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+
+      if (loja) {
+        companyId = loja.establishment_id;
+      }
+    }
+
+    const { clausula, valores } = montarWhere({ mesInicio, mesFim, companyId });
 
     // KPIs
     const [[tot]] = await db.execute(
       `SELECT COUNT(*) AS total_pedidos,
               COALESCE(SUM(totalAmount),0) AS receita_total,
               COALESCE(AVG(totalAmount),0) AS ticket_medio_geral
-         FROM \`order\` ${clause}`,
-      vals
+         FROM \`order\` ${clausula}`,
+      valores
     );
 
     const [[canc]] = await db.execute(
       `SELECT COUNT(*) AS cancelados
          FROM \`order\`
-        ${clause ? clause + " AND" : "WHERE"} status = 'CANCELED'`,
-      vals
+        ${clausula ? clausula + " AND" : "WHERE"} status = 'CANCELED'`,
+      valores
     );
 
-    const totalPedidos = Number(tot?.total_pedidos || 0);
-    const cancelados = Number(canc?.cancelados || 0);
+    const totalPedidos   = Number(tot?.total_pedidos || 0);
+    const cancelados     = Number(canc?.cancelados || 0);
     const taxa_cancelamento = totalPedidos ? (cancelados / totalPedidos) * 100 : 0;
 
-    // Gráficos
     const [status] = await db.execute(
       `SELECT status, COUNT(*) AS qtde
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY status
         ORDER BY qtde DESC`,
-      vals
+      valores
     );
 
     const [canal] = await db.execute(
       `SELECT salesChannel AS canal, COUNT(*) AS qtde
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY salesChannel
         ORDER BY qtde DESC`,
-      vals
+      valores
     );
 
     const [receitaMes] = await db.execute(
       `SELECT DATE_FORMAT(createdAt,'%Y-%m') AS mes,
               COALESCE(SUM(totalAmount),0) AS receita
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY DATE_FORMAT(createdAt,'%Y-%m')
         ORDER BY mes`,
-      vals
+      valores
     );
 
     const [ticketCanal] = await db.execute(
       `SELECT salesChannel AS canal,
               COALESCE(AVG(totalAmount),0) AS ticket_medio
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY salesChannel
         ORDER BY canal`,
-      vals
+      valores
     );
 
-    // Tempo médio por tipo, usado o preparationTime (minutos) agrupado por orderType
     const [tempoMedio] = await db.execute(
       `SELECT orderType AS tipo,
               COALESCE(AVG(preparationTime),0) AS tempo_medio
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY orderType
         ORDER BY tipo`,
-      vals
+      valores
     );
 
     const [horarios] = await db.execute(
       `SELECT HOUR(createdAt) AS hora, COUNT(*) AS qtde
-         FROM \`order\` ${clause}
+         FROM \`order\` ${clausula}
         GROUP BY HOUR(createdAt)
         ORDER BY hora`,
-      vals
+      valores
     );
 
-    // Filtros auxiliares
-    // Meses completos
+    // Meses disponíveis (sem filtro mesmo, pra popular o select)
     const [mesesTodos] = await db.execute(
       `SELECT DISTINCT DATE_FORMAT(createdAt,'%Y-%m') AS mes
          FROM \`order\`
@@ -240,15 +250,21 @@ export async function getPedidosAdmin(req, res) {
     );
     const mesesDisponiveis = mesesTodos.map((r) => r.mes);
 
-    // Lista de lojas (companyId)
+    // Lista de lojas (id + nome)
     const [lojasRows] = await db.execute(
-      `SELECT DISTINCT companyId
-         FROM \`order\`
-        ORDER BY companyId`
+      `SELECT DISTINCT o.companyId AS id, e.store_name AS nome
+         FROM \`order\` o
+    LEFT JOIN estabelecimentos e
+           ON e.establishment_id = o.companyId
+        WHERE o.companyId IS NOT NULL
+        ORDER BY nome`
     );
-    const lojas = lojasRows.map((r) => ({ id: r.companyId, nome: r.companyId }));
 
-    // Resposta em Json
+    const lojas = lojasRows.map((r) => ({
+      id: r.id,
+      nome: r.nome || String(r.id),
+    }));
+
     res.json({
       kpis: {
         total_pedidos: totalPedidos,
@@ -264,10 +280,8 @@ export async function getPedidosAdmin(req, res) {
         tempoMedio: tempoMedio.map((t) => ({ tipo: t.tipo, tempo_medio: Number(t.tempo_medio || 0) })),
         horarios: horarios.map((h) => ({ hora: Number(h.hora || 0), qtde: Number(h.qtde || 0) })),
       },
-      filtros: {
-        mesesDisponiveis,
-      },
-      lojas, 
+      filtros: { mesesDisponiveis },
+      lojas,
     });
   } catch (err) {
     console.error(err);

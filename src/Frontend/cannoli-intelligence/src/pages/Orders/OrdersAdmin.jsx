@@ -34,8 +34,9 @@ export default function OrdersAdmin() {
   const [mesFim, setMesFim] = useState("");
   const [storeId, setStoreId] = useState("");
   const [lojas, setLojas] = useState([]);
+  const [storeName, setStoreName] = useState("");
 
-  const [todosMeses, setTodosMeses] = useState([]); 
+  const [todosMeses, setTodosMeses] = useState([]);
 
   const [kpis, setKpis] = useState({
     total_pedidos: 0,
@@ -88,15 +89,12 @@ export default function OrdersAdmin() {
         horarios: g?.horarios ?? [],
       });
 
-      // Atualiza lista de meses
       const novosMeses = filtrosResp?.mesesDisponiveis ?? [];
       if (novosMeses.length) {
-        // mescla lista antiga com novos meses e remove duplicatas
         setTodosMeses((prev) => Array.from(new Set([...prev, ...novosMeses])));
         setFiltros({ mesesDisponiveis: novosMeses });
       }
 
-      // Atualiza lista de lojas (para o filtro)
       if (Array.isArray(lojasResp)) setLojas(lojasResp);
 
       setErr("");
@@ -117,9 +115,9 @@ export default function OrdersAdmin() {
     fetchData({
       mesInicio,
       mesFim,
-      companyId: storeId || undefined,
+      storeName: storeName || undefined,
     });
-  }, [mesInicio, mesFim, storeId]);
+  }, [mesInicio, mesFim, storeName]);
 
   // Gráficos
   const accent = "#ff7a00";
@@ -169,7 +167,6 @@ export default function OrdersAdmin() {
       currency: "BRL",
     });
 
-  // === labels ===
   const statusLabels = useMemo(() => (graficos.status || []).map((s) => s.status ?? "—"), [graficos.status]);
   const statusValues = useMemo(() => (graficos.status || []).map((s) => Number(s.qtde) || 0), [graficos.status]);
 
@@ -200,11 +197,11 @@ export default function OrdersAdmin() {
               {/* Filtro por Estabelecimento */}
               <div className="field">
                 <label>Estabelecimento</label>
-                <select value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+                <select value={storeName} onChange={(e) => setStoreName(e.target.value)}>
                   <option value="">Todos</option>
-                  {lojas.map((l, i) => (
-                    <option key={i} value={l.id || l}>
-                      {l.nome || l.companyId || l}
+                  {lojas.map((l) => (
+                    <option key={l.id} value={l.nome}>
+                      {l.nome}
                     </option>
                   ))}
                 </select>
