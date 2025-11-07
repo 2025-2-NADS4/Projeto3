@@ -33,7 +33,7 @@ export default function CampaignsAdmin() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const [lojaId, setLojaId] = useState("");      
+  const [storeName, setStoreName] = useState("");   
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
   const [campanhaId, setCampanhaId] = useState("");
@@ -71,7 +71,7 @@ export default function CampaignsAdmin() {
         mesesDisponiveis: filtros?.mesesDisponiveis || [],
       }));
 
-      // auto–preenche o período na 1ª carga
+      // Auto–preenche o período na 1ª carga
       if (!mesInicio && filtros?.mesesDisponiveis?.length) {
         setMesInicio(filtros.mesesDisponiveis[0]);
       }
@@ -92,12 +92,12 @@ export default function CampaignsAdmin() {
     fetchData({});
   }, []);
 
-  // recarrega ao mudar filtros
+  // Recarrega ao mudar filtros
   useEffect(() => {
-    if (mesInicio || mesFim || campanhaId || lojaId) {
-      fetchData({ lojaId, mesInicio, mesFim, campanhaId });
+    if (mesInicio || mesFim || campanhaId || storeName) {
+      fetchData({ storeName, mesInicio, mesFim, campanhaId });
     }
-  }, [lojaId, mesInicio, mesFim, campanhaId]);
+  }, [storeName, mesInicio, mesFim, campanhaId]);
 
   const accent = "#ff7a00";
   const rail = "#1f2835";
@@ -137,7 +137,7 @@ export default function CampaignsAdmin() {
 
   const chartMes = useMemo(
     () => ({
-      labels: mesData.map((m) => m.ym || m.mes || m._mes || ""), 
+      labels: mesData.map((m) => m.ym || m.mes || m._mes || ""),
       datasets: [
         {
           label: "Qtd",
@@ -172,12 +172,12 @@ export default function CampaignsAdmin() {
             <h1>Dashboard - Campanhas (Admin)</h1>
             <div className="filters">
               <div className="field">
-                <label>Estabelecimento (storeId)</label>
-                <select value={lojaId} onChange={(e) => setLojaId(e.target.value)}>
+                <label>Estabelecimento</label>
+                <select value={storeName} onChange={(e) => setStoreName(e.target.value)}>
                   <option value="">Todos</option>
-                  {filtros.lojas?.map((id, i) => (
-                    <option key={i} value={id}>
-                      {id}
+                  {filtros.lojas?.map((nome, i) => (
+                    <option key={i} value={nome}>
+                      {nome}
                     </option>
                   ))}
                 </select>
