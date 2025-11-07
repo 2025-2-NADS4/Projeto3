@@ -10,6 +10,8 @@ import CustomersAdmin from './pages/Customers/CustomersAdmin';
 import OrdersEstab from './pages/Orders/OrdersEstab';
 import OrdersAdmin from './pages/Orders/OrdersAdmin';
 import AdminOverview from './pages/Admin/AdminOverview';
+import CustomersRiskEstab from './pages/Customers/CustomersRiskEstab';
+import CustomersRiskAdmin from './pages/Customers/CustomersRiskAdmin';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -28,6 +30,8 @@ function App() {
                 <Route path="/pedidos/estab" element={<OrdersEstab />} />
                 <Route path="/pedidos/admin" element={<OrdersAdmin />} />
                 <Route path="/overview/admin" element={<AdminOverview />} />
+                <Route path="/clientes-risco/estab" element={<CustomersRiskEstab />} />
+                <Route path="/clientes-risco/admin" element={<CustomersRiskAdmin />} />
             </Routes>
         </div>
     </>
