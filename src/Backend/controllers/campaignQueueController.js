@@ -23,7 +23,7 @@ function montarWhere({ lojaId, mesInicio, mesFim }) {
   return { clausula, parametros };
 }
 
-// GET /api/estabelecimento/campaignqueue ---------- */
+// GET /api/estabelecimento/campaignqueue
 export const getCampaignQueueEstabelecimento = async (req, res) => {
   try {
     const usuario = req.user;
@@ -151,7 +151,22 @@ export const getCampaignQueueAdmin = async (req, res) => {
         .json({ erro: "Acesso negado! Apenas administradores podem acessar." });
     }
 
-    const { lojaId, mesInicio, mesFim } = req.query;
+    const { lojaId: lojaIdQuery, mesInicio, mesFim, storeName } = req.query;
+    let lojaId = lojaIdQuery;
+
+    if (!lojaId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+      if (loja) {
+        lojaId = loja.establishment_id;
+      }
+    }
+
     const { clausula, parametros } = montarWhere({ lojaId, mesInicio, mesFim });
 
     const [[kpiTotal]] = await db.execute(
@@ -170,7 +185,7 @@ export const getCampaignQueueAdmin = async (req, res) => {
       parametros
     );
 
-    // buckets
+    // Buckets
     const bucket = { lida: 0, enviada: 0, pendente: 0, outros: 0 };
     rowsStatus.forEach((r) => {
       const s = (r.status_desc || "").toLowerCase();
@@ -194,6 +209,13 @@ export const getCampaignQueueAdmin = async (req, res) => {
       parametros
     );
 
+    // Meses disponíveis completos
+    const [mesesTodos] = await db.execute(
+      `SELECT DISTINCT _mes AS mes
+         FROM campaign_queue
+        ORDER BY mes ASC`
+    );
+
     const [rowsStores] = await db.execute(
       `SELECT storeId,
               SUM(CASE WHEN LOWER(status_desc) LIKE '%lida%' THEN 1 ELSE 0 END) AS lidas,
@@ -209,12 +231,17 @@ export const getCampaignQueueAdmin = async (req, res) => {
       parametros
     );
 
+    // É feito a busca da lista de lojas pelo nome
     const [lojas] = await db.execute(
-      `SELECT DISTINCT storeId FROM campaign_queue ORDER BY storeId`
+      `SELECT DISTINCT e.store_name
+         FROM campaign_queue c
+         JOIN estabelecimentos e ON e.establishment_id = c.storeId
+        ORDER BY e.store_name`
     );
 
+    // Resposta em JSON
     return res.json({
-      meta: { lojaId: lojaId || null },
+      meta: { lojaId: lojaId || null, storeName: storeName || null },
       kpis: {
         total: Number(kpiTotal.total || 0),
         taxaLeitura,
@@ -233,8 +260,8 @@ export const getCampaignQueueAdmin = async (req, res) => {
         })),
       },
       filtros: {
-        lojas: lojas.map((r) => r.storeId),
-        mesesDisponiveis: rowsMes.map((r) => r.mes),
+        lojas: lojas.map((r) => r.store_name),
+        mesesDisponiveis: mesesTodos.map((r) => r.mes),
       },
     });
   } catch (erro) {
