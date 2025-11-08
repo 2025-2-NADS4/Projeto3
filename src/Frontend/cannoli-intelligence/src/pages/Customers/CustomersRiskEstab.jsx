@@ -38,6 +38,9 @@ export default function CustomersRiskEstab() {
   const [listaRisco, setListaRisco] = useState([]);
 
   const [ordenacao, setOrdenacao] = useState("dias_sem_compra");
+  const [filtroCategoria, setFiltroCategoria] = useState("todos");
+  const [filtroMes, setFiltroMes] = useState("");
+  const [mesesUltimaCompra, setMesesUltimaCompra] = useState([]);
 
   const accent = "#ff7a00";
   const rail = "#1f2835";
@@ -73,8 +76,23 @@ export default function CustomersRiskEstab() {
 
       setDistCategorias(g.distribuicaoCategorias || {});
       setHistDias(g.histDias || []);
-      setTopInativos(g.topInativos || []);      
-      setListaRisco(data.listaRisco || []);    
+      setTopInativos(g.topInativos || []);
+
+      const lista = data.listaRisco || [];
+      setListaRisco(lista);
+
+      const mesesSet = new Set();
+      lista.forEach((c) => {
+        if (c.ultimaCompra) {
+          const d = new Date(c.ultimaCompra);
+          if (!Number.isNaN(d.getTime())) {
+            const ym = d.toISOString().slice(0, 7);
+            mesesSet.add(ym);
+          }
+        }
+      });
+      const mesesOrdenados = Array.from(mesesSet).sort(); 
+      setMesesUltimaCompra(mesesOrdenados);
 
       setErr("");
     } catch (e) {
@@ -101,6 +119,13 @@ export default function CustomersRiskEstab() {
   const getNome = (c) =>
     c.customerName || c.nome || c.name || c.customer_name || "—";
 
+  const getMesUltimaCompra = (c) => {
+    if (!c.ultimaCompra) return null;
+    const d = new Date(c.ultimaCompra);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 7); 
+  };
+
   function categoriaPorDias(dias) {
     if (dias <= 30) return "ATIVO";
     if (dias <= 60) return "RISCO";
@@ -116,6 +141,16 @@ export default function CustomersRiskEstab() {
   const listaFiltrada = useMemo(() => {
     let base = [...listaRisco];
 
+    if (filtroCategoria !== "todos") {
+      base = base.filter(
+        (c) => categoriaPorDias(getDiasSemCompra(c)) === filtroCategoria
+      );
+    }
+
+    if (filtroMes) {
+      base = base.filter((c) => getMesUltimaCompra(c) === filtroMes);
+    }
+
     base.sort((a, b) => {
       if (ordenacao === "dias_sem_compra") {
         return getDiasSemCompra(b) - getDiasSemCompra(a);
@@ -127,17 +162,34 @@ export default function CustomersRiskEstab() {
     });
 
     return base;
-  }, [listaRisco, ordenacao]);
+  }, [listaRisco, ordenacao, filtroCategoria, filtroMes]);
 
-  // Gráficos
-  // Distribuição por categoria
+  const distFromFiltro = useMemo(() => {
+    const counts = {
+      "Ativo (≤30d)": 0,
+      "Em risco (31–60d)": 0,
+      "Perdido (>60d)": 0,
+    };
+
+    listaFiltrada.forEach((c) => {
+      const dias = getDiasSemCompra(c);
+      const catCode = categoriaPorDias(dias);
+      if (catCode === "ATIVO") counts["Ativo (≤30d)"]++;
+      else if (catCode === "RISCO") counts["Em risco (31–60d)"]++;
+      else counts["Perdido (>60d)"]++;
+    });
+
+    return counts;
+  }, [listaFiltrada]);
+
   const distLabels = useMemo(
-    () => Object.keys(distCategorias || {}),
-    [distCategorias]
+    () => Object.keys(distFromFiltro || {}),
+    [distFromFiltro]
   );
+
   const distValues = useMemo(
-    () => distLabels.map((k) => Number(distCategorias[k] || 0)),
-    [distCategorias, distLabels]
+    () => distLabels.map((k) => Number(distFromFiltro[k] || 0)),
+    [distFromFiltro, distLabels]
   );
 
   const dsDistribuicao = {
@@ -152,14 +204,19 @@ export default function CustomersRiskEstab() {
     ],
   };
 
-  // Top 10: mais tempo sem compra
+  // Top 10: mais tempo sem compra 
+  const topBase = useMemo(
+    () => listaFiltrada.slice(0, 10),
+    [listaFiltrada]
+  );
+
   const topLabels = useMemo(
-    () => topInativos.map((c) => getNome(c)),
-    [topInativos]
+    () => topBase.map((c) => getNome(c)),
+    [topBase]
   );
   const topValues = useMemo(
-    () => topInativos.map((c) => getDiasSemCompra(c)),
-    [topInativos]
+    () => topBase.map((c) => getDiasSemCompra(c)),
+    [topBase]
   );
 
   const dsTop10 = {
@@ -175,13 +232,30 @@ export default function CustomersRiskEstab() {
   };
 
   // Distribuição de dias sem compra (faixas)
+  const histFromFiltro = useMemo(() => {
+    const bins = { "≤30": 0, "31–60": 0, ">60": 0 };
+
+    listaFiltrada.forEach((c) => {
+      const d = getDiasSemCompra(c);
+      if (d <= 30) bins["≤30"]++;
+      else if (d <= 60) bins["31–60"]++;
+      else bins[">60"]++;
+    });
+
+    return [
+      { faixa: "≤30", qtd: bins["≤30"] },
+      { faixa: "31–60", qtd: bins["31–60"] },
+      { faixa: ">60", qtd: bins[">60"] },
+    ];
+  }, [listaFiltrada]);
+
   const histLabels = useMemo(
-    () => (histDias || []).map((h) => h.faixa),
-    [histDias]
+    () => (histFromFiltro || []).map((h) => h.faixa),
+    [histFromFiltro]
   );
   const histValues = useMemo(
-    () => (histDias || []).map((h) => Number(h.qtd || 0)),
-    [histDias]
+    () => (histFromFiltro || []).map((h) => Number(h.qtd || 0)),
+    [histFromFiltro]
   );
 
   const dsHist = {
@@ -221,8 +295,38 @@ export default function CustomersRiskEstab() {
                   value={ordenacao}
                   onChange={(e) => setOrdenacao(e.target.value)}
                 >
-                  <option value="dias_sem_compra">Mais tempo sem comprar</option>
+                  <option value="dias_sem_compra">
+                    Mais tempo sem comprar
+                  </option>
                   <option value="nome">Nome do cliente</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Categoria de risco</label>
+                <select
+                  value={filtroCategoria}
+                  onChange={(e) => setFiltroCategoria(e.target.value)}
+                >
+                  <option value="todos">Todos</option>
+                  <option value="ATIVO">Ativo (≤30d)</option>
+                  <option value="RISCO">Em risco (31–60d)</option>
+                  <option value="PERDIDO">Perdido (&gt;60d)</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Última compra (mês)</label>
+                <select
+                  value={filtroMes}
+                  onChange={(e) => setFiltroMes(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {mesesUltimaCompra.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -269,7 +373,7 @@ export default function CustomersRiskEstab() {
             <div className="panel">
               <div className="panel_title">Distribuição por categoria</div>
               <div className="panel_subtitle">
-                Base considerada: {kpis.base_clientes} clientes
+                Base considerada: {listaFiltrada.length} clientes (após filtros)
               </div>
               <div className="chartbox">
                 <Bar data={dsDistribuicao} options={chartOpts} />
@@ -279,7 +383,7 @@ export default function CustomersRiskEstab() {
             <div className="panel">
               <div className="panel_title">Top 10: mais tempo sem compra</div>
               <div className="panel_subtitle">
-                Clientes com maior tempo sem comprar
+                Clientes filtrados com maior tempo sem comprar
               </div>
               <div className="chartbox">
                 <Bar data={dsTop10} options={chartOpts} />
@@ -290,7 +394,7 @@ export default function CustomersRiskEstab() {
           {/* Tabela */}
           <div className="panel">
             <div className="panel_title">
-              Lista de clientes em risco (31–60 dias)
+              Lista de clientes em risco / perdidos
             </div>
             <div className="table-wrap">
               <table className="table risk-table">
@@ -300,17 +404,16 @@ export default function CustomersRiskEstab() {
                     <th>Nível</th>
                     <th>Dias sem comprar</th>
                     <th>Última compra</th>
-                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {listaFiltrada.length === 0 && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={4}
                         style={{ textAlign: "center", opacity: 0.7 }}
                       >
-                        Nenhum cliente em risco encontrado.
+                        Nenhum cliente encontrado para os filtros atuais.
                       </td>
                     </tr>
                   )}
@@ -330,17 +433,6 @@ export default function CustomersRiskEstab() {
                                 "pt-BR"
                               )
                             : "—"}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="coupon-btn"
-                            onClick={() => {
-                              console.log("Cupom para", getNome(c));
-                            }}
-                          >
-                            Cupom
-                          </button>
                         </td>
                       </tr>
                     );
