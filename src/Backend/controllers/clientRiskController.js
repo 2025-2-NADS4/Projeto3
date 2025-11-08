@@ -84,20 +84,20 @@ export async function getClientesRiscoEstabelecimento(req, res) {
     const qtdRisco = counts["Em risco (31–60d)"];
     const qtdPerdidos = counts["Perdido (>60d)"];
 
-      // Top 10 que estão há mais tempo sem comprar (qualquer categoria)
-      const topInativos = [...baseRows]
-        .sort((a, b) => b.diasSemCompra - a.diasSemCompra)
-        .slice(0, 10)
-        .map((r) => ({
-          customerId: r.customerId,
-          customerName: r.customerName,
-          diasSemCompra: r.diasSemCompra,
-          ultimaCompra: r.lastPurchase,
-          loja: {
-            id: r.companyId,
-            nome: r.storeName,
-          },
-        }));
+    // Top 10 que estão há mais tempo sem comprar (qualquer categoria)
+    const topInativos = [...baseRows]
+      .sort((a, b) => b.diasSemCompra - a.diasSemCompra)
+      .slice(0, 10)
+      .map((r) => ({
+        customerId: r.customerId,
+        customerName: r.customerName,
+        diasSemCompra: r.diasSemCompra,
+        ultimaCompra: r.lastPurchase,
+        loja: {
+          id: r.companyId,
+          nome: r.storeName,
+        },
+      }));
 
     // Histograma simples de faixas
     const histBins = { "≤30": 0, "31–60": 0, ">60": 0 };
@@ -113,15 +113,15 @@ export async function getClientesRiscoEstabelecimento(req, res) {
       { faixa: ">60", qtd: histBins[">60"] },
     ];
 
-    // Tabela – somente clientes em risco (31–60d) (já estava assim)
-    const clientesEmRisco = baseRows
-      .filter((r) => r.categoria === "Em risco (31–60d)")
+    // Tabela com todos os clientes (ativos, risco, perdidos)
+    const listaCompleta = [...baseRows]
       .sort((a, b) => b.diasSemCompra - a.diasSemCompra)
       .map((r) => ({
         customerId: r.customerId,
         customerName: r.customerName,
         diasSemCompra: r.diasSemCompra,
         ultimaCompra: r.lastPurchase,
+        categoria: r.categoria,
         loja: {
           id: r.companyId,
           nome: r.storeName,
@@ -148,7 +148,7 @@ export async function getClientesRiscoEstabelecimento(req, res) {
         histDias,
         topInativos,
       },
-      listaRisco: clientesEmRisco,
+      listaRisco: listaCompleta,
       meta: {
         loja: {
           id: establishment_id,
