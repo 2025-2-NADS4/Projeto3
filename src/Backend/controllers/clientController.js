@@ -25,12 +25,13 @@ function normalizarDiaSemana(mysqlDow) {
   return mysqlDow === 1 ? 7 : mysqlDow - 1;
 }
 
+const isAtivo = (s) => /\bativo\b/i.test(s || "");
 
 // GET /api/estabelecimento/clientes
 export async function getClientesEstabelecimento(req, res) {
   try {
     const { establishment_id } = req.user;
-    const { mesInicio, mesFim } = req.query;
+    const { mesInicio, mesFim, status: statusFiltro } = req.query;
 
     // Base de clientes
     const [clientes] = await db.execute(
@@ -47,24 +48,29 @@ export async function getClientesEstabelecimento(req, res) {
         WHERE establishment_id = ?
         LIMIT 1`,
       [establishment_id]
-    )
-    const lojaNome = linhaLoja?.store_name || '(Loja sem nome)'
+    );
+    const lojaNome = linhaLoja?.store_name || "(Loja sem nome)";
 
     // Filtro de período
     const start = mesInicio ? new Date(`${mesInicio}-01`) : null;
     const end = mesFim ? new Date(`${mesFim}-01`) : null;
+
+    // Filtro principal (período + status, caso seja informado)
     const filtered = clientes.filter((c) => {
       const d = new Date(c.createdAt);
       if (start && d < start) return false;
       if (end && d >= end) return false;
+
+      // Filtro por status: "ativos" / "inativos" / (vazio = todos)
+      if (statusFiltro === "ativos" && !isAtivo(c.status_desc)) return false;
+      if (statusFiltro === "inativos" && isAtivo(c.status_desc)) return false;
+
       return true;
     });
 
     // KPIs
     const total = filtered.length;
-    const isAtivo = (s) => /\bativo\b/i.test(s || "");
-    const ativos = filtered.filter(c => isAtivo(c.status_desc)).length;
-
+    const ativos = filtered.filter((c) => isAtivo(c.status_desc)).length;
     const inativos = total - ativos;
     const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
 
@@ -122,16 +128,29 @@ export async function getClientesEstabelecimento(req, res) {
       heatmap[dia][r.hora] = Number(r.qtd);
     }
 
+    // Meses disponíveis para o filtro
+    const [mesesRows] = await db.execute(
+      `SELECT DISTINCT DATE_FORMAT(createdAt,'%Y-%m') AS ym
+         FROM customer
+        WHERE companyId = ?
+        ORDER BY ym`,
+      [establishment_id]
+    );
+    const mesesDisponiveis = mesesRows.map((r) => r.ym);
+
     res.json({
       kpis: { total, ativos, inativos, pctAtivos, taxaRecompra },
       graficos: { status, genero, faixas },
       heatmap,
       aniversariantes: aniversariantes.slice(0, 10),
       meta: { loja: { id: establishment_id, nome: lojaNome } },
+      filtros: { mesesDisponiveis },
     });
   } catch (err) {
     console.error("Erro em getClientesEstabelecimento:", err);
-    res.status(500).json({ erro: "Erro ao carregar dados de clientes (estab)." });
+    res
+      .status(500)
+      .json({ erro: "Erro ao carregar dados de clientes (estab)." });
   }
 }
 
