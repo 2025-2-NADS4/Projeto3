@@ -16,6 +16,8 @@ import {
 import Sidebar from "../../components/Sidebar";
 import "./campaigns.css";
 
+import { buildMensagemAdmin } from "../../utils/aiCampaignMessages";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -28,12 +30,14 @@ ChartJS.register(
 );
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
+const MAX_SUG_POR_GRUPO = 3;
+const MAX_IDADE_SUG_HORAS = 24; // Sugestões expíram após 24h
 
 export default function CampaignsAdmin() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const [storeName, setStoreName] = useState("");   
+  const [storeName, setStoreName] = useState("");
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
   const [campanhaId, setCampanhaId] = useState("");
@@ -44,10 +48,15 @@ export default function CampaignsAdmin() {
   const [mesData, setMesData] = useState([]);
 
   const [filtros, setFiltros] = useState({
-    lojas: [],           
+    lojas: [],
     campanhas: [],
     mesesDisponiveis: [],
   });
+
+  // Sugestões da IA
+  const [aiSugestoes, setAiSugestoes] = useState([]);
+  const [aiErr, setAiErr] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   async function fetchData(params = {}) {
     setLoading(true);
@@ -71,13 +80,13 @@ export default function CampaignsAdmin() {
         mesesDisponiveis: filtros?.mesesDisponiveis || [],
       }));
 
-      // Auto–preenche o período na 1ª carga
       if (!mesInicio && filtros?.mesesDisponiveis?.length) {
         setMesInicio(filtros.mesesDisponiveis[0]);
       }
       if (!mesFim && filtros?.mesesDisponiveis?.length) {
         setMesFim(filtros.mesesDisponiveis.at(-1));
       }
+
       setErr("");
     } catch (e) {
       console.error(e);
@@ -87,15 +96,86 @@ export default function CampaignsAdmin() {
     }
   }
 
-  // 1ª carga
+  // Função para verificar se as sugestões estão desatualizadas
+  function sugestoesEstaoDesatualizadas(sugestoes) {
+    if (!sugestoes || !sugestoes.length) return true;
+
+    let maisRecente = 0;
+    for (const s of sugestoes) {
+      const t = s.gerado_em ? new Date(s.gerado_em).getTime() : 0;
+      if (!Number.isNaN(t) && t > maisRecente) {
+        maisRecente = t;
+      }
+    }
+    if (!maisRecente) return true;
+
+    const diffMs = Date.now() - maisRecente;
+    const diffHoras = diffMs / (1000 * 60 * 60);
+    return diffHoras > MAX_IDADE_SUG_HORAS;
+  }
+
+  // Função para buscar sugestões e opcionalmente disparar o ML se estiver vazio/velho
+  async function fetchSugestoesIA(
+    storeNameParam,
+    { autoGenerateIfStale = false } = {}
+  ) {
+    try {
+      const token = localStorage.getItem("userToken");
+      const headers = { Authorization: `Bearer ${token}` };
+
+      async function doGet() {
+        const res = await axios.get(
+          `${API_BASE}/api/admin/campanhas/sugestoes`,
+          {
+            params: storeNameParam ? { storeName: storeNameParam } : {},
+            headers,
+          }
+        );
+
+        const data = res.data || {};
+        setFiltros((prev) => ({
+          ...prev,
+          lojas: data.filtros?.lojas || prev.lojas,
+        }));
+        setAiSugestoes(data.sugestoes || []);
+        setAiErr("");
+
+        return data.sugestoes || [];
+      }
+
+      let sugestoes = await doGet();
+
+      if (autoGenerateIfStale && sugestoesEstaoDesatualizadas(sugestoes)) {
+        try {
+          setAiGenerating(true);
+          await axios.post(`${API_BASE}/api/executar-ia`, {}, { headers });
+          sugestoes = await doGet();
+        } finally {
+          setAiGenerating(false);
+        }
+      }
+
+      return sugestoes;
+    } catch (e) {
+      console.error(e);
+      setAiErr("Erro ao carregar sugestões da IA.");
+      return [];
+    }
+  }
+
+  // 1ª carga: dados + IA (com fallback para gerar se velho/vazio)
   useEffect(() => {
-    fetchData({});
+    (async () => {
+      await fetchData({});
+      await fetchSugestoesIA("", { autoGenerateIfStale: true });
+    })();
   }, []);
 
-  // Recarrega ao mudar filtros
+  // Recarrega dados ao mudar filtros
   useEffect(() => {
     if (mesInicio || mesFim || campanhaId || storeName) {
       fetchData({ storeName, mesInicio, mesFim, campanhaId });
+      fetchSugestoesIA(storeName || "", { autoGenerateIfStale: false });
     }
   }, [storeName, mesInicio, mesFim, campanhaId]);
 
@@ -130,7 +210,12 @@ export default function CampaignsAdmin() {
     return {
       labels,
       datasets: [
-        { label: "Qtd", data: values, backgroundColor: accent, borderRadius: 8 },
+        {
+          label: "Qtd",
+          data: values,
+          backgroundColor: accent,
+          borderRadius: 8,
+        },
       ],
     };
   }, [badgeData]);
@@ -157,23 +242,60 @@ export default function CampaignsAdmin() {
     maintainAspectRatio: false,
     scales: {
       x: { grid: { color: rail }, ticks: { color: "#cdd6e4" } },
-      y: { grid: { color: rail }, ticks: { color: "#cdd6e4" }, beginAtZero: true },
+      y: {
+        grid: { color: rail },
+        ticks: { color: "#cdd6e4" },
+        beginAtZero: true,
+      },
     },
     plugins: { legend: { labels: { color: "#cdd6e4" } } },
   };
+
+  // // Sugestão de IA vai agrupar e limitar por grupo
+  const priorizar = useMemo(
+    () =>
+      aiSugestoes
+        .filter((s) => s.grupo === "priorizar")
+        .slice()
+        .sort((a, b) => (b.confianca || 0) - (a.confianca || 0))
+        .slice(0, MAX_SUG_POR_GRUPO),
+    [aiSugestoes]
+  );
+
+  const ajustar = useMemo(
+    () =>
+      aiSugestoes
+        .filter((s) => s.grupo === "ajustar_ou_pausar")
+        .slice()
+        .sort((a, b) => (b.confianca || 0) - (a.confianca || 0))
+        .slice(0, MAX_SUG_POR_GRUPO),
+    [aiSugestoes]
+  );
+
+  const monitorar = useMemo(
+    () =>
+      aiSugestoes
+        .filter((s) => s.grupo === "monitorar")
+        .slice()
+        .sort((a, b) => (b.confianca || 0) - (a.confianca || 0))
+        .slice(0, MAX_SUG_POR_GRUPO),
+    [aiSugestoes]
+  );
 
   return (
     <div className="layout">
       <Sidebar />
       <div className="main">
         <div className="wrap">
-
           <div className="topbar">
             <h1>Dashboard - Campanhas (Admin)</h1>
             <div className="filters">
               <div className="field">
                 <label>Estabelecimento</label>
-                <select value={storeName} onChange={(e) => setStoreName(e.target.value)}>
+                <select
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                >
                   <option value="">Todos</option>
                   {filtros.lojas?.map((nome, i) => (
                     <option key={i} value={nome}>
@@ -214,7 +336,10 @@ export default function CampaignsAdmin() {
 
               <div className="field">
                 <label>Mês final</label>
-                <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
                     <option key={i} value={m}>
                       {m}
@@ -228,6 +353,7 @@ export default function CampaignsAdmin() {
           {err && <div className="errorBox">{err}</div>}
           {loading && <div className="errorBox">Carregando…</div>}
 
+          {/* KPIs */}
           <section className="kpis">
             <div className="kpi">
               <div className="kpi_title">Total de campanhas</div>
@@ -255,6 +381,7 @@ export default function CampaignsAdmin() {
             </div>
           </section>
 
+          {/* Gráficos principais */}
           <div className="grid2">
             <div className="panel">
               <div className="panel_title">Campanhas por status</div>
@@ -263,7 +390,9 @@ export default function CampaignsAdmin() {
               </div>
             </div>
             <div className="panel">
-              <div className="panel_title">Campanhas por badge (Top 8 + Outros)</div>
+              <div className="panel_title">
+                Campanhas por badge (Top 8 + Outros)
+              </div>
               <div className="chartbox">
                 <Bar data={chartBadge} options={opts} />
               </div>
@@ -274,6 +403,117 @@ export default function CampaignsAdmin() {
             <div className="panel_title">Campanhas por mês</div>
             <div className="chartbox tall">
               <Line data={chartMes} options={opts} />
+            </div>
+          </div>
+
+          {/* Sugestões da IA (Admin) */}
+          <div className="panel">
+            <div className="panel_title">
+              Sugestões da IA para campanhas{" "}
+              {storeName ? `— ${storeName}` : "(todas as lojas)"}
+            </div>
+
+            {aiErr && <div className="errorBox">{aiErr}</div>}
+
+            {aiGenerating && (
+              <div className="ai-hint">
+                Gerando novas sugestões com base nas campanhas mais recentes…
+              </div>
+            )}
+
+            <div className="ai-hint">
+              Visão consolidada das campanhas sugeridas pela IA em todas as
+              lojas. Mostrando até {MAX_SUG_POR_GRUPO} campanhas mais relevantes
+              por grupo.
+            </div>
+
+            <div className="ai-grid">
+              {/* Priorizar */}
+              <div className="ai-column">
+                <h3>🎯 Priorizar</h3>
+                {priorizar.length ? (
+                  <ul className="ai-list">
+                    {priorizar.map((s, i) => (
+                      <li key={`${s.campaignId}-${i}`} className="ai-card">
+                        <div className="ai-card-header">
+                          <strong className="ai-name">{s.nome}</strong>
+                          <span className="ai-tag">
+                            {s.storeName || s.storeId} · {s.status_previsto} ·{" "}
+                            {Math.round((s.confianca || 0) * 100)}%
+                          </span>
+                        </div>
+                        <p className="ai-text">
+                          {buildMensagemAdmin(s, "priorizar")}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="ai-empty">
+                    Nenhuma campanha em destaque para priorização.
+                  </div>
+                )}
+              </div>
+
+              {/* Ajustar ou pausar */}
+              <div className="ai-column">
+                <h3>⚙️ Ajustar ou pausar</h3>
+                {ajustar.length ? (
+                  <ul className="ai-list">
+                    {ajustar.map((s, i) => (
+                      <li
+                        key={`${s.campaignId}-${i}`}
+                        className="ai-card warn"
+                      >
+                        <div className="ai-card-header">
+                          <strong className="ai-name">{s.nome}</strong>
+                          <span className="ai-tag">
+                            {s.storeName || s.storeId} · {s.status_previsto} ·{" "}
+                            {Math.round((s.confianca || 0) * 100)}%
+                          </span>
+                        </div>
+                        <p className="ai-text">
+                          {buildMensagemAdmin(s, "ajustar_ou_pausar")}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="ai-empty">
+                    Nenhuma campanha crítica sinalizada pela IA.
+                  </div>
+                )}
+              </div>
+
+              {/* Monitorar */}
+              <div className="ai-column">
+                <h3>👁️ Monitorar</h3>
+                {monitorar.length ? (
+                  <ul className="ai-list">
+                    {monitorar.map((s, i) => (
+                      <li
+                        key={`${s.campaignId}-${i}`}
+                        className="ai-card neutral"
+                      >
+                        <div className="ai-card-header">
+                          <strong className="ai-name">{s.nome}</strong>
+                          <span className="ai-tag">
+                            {s.storeName || s.storeId} · {s.status_previsto} ·{" "}
+                            {Math.round((s.confianca || 0) * 100)}%
+                          </span>
+                        </div>
+                        <p className="ai-text">
+                          {buildMensagemAdmin(s, "monitorar")}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="ai-empty">
+                    Nenhuma campanha em zona neutra listada pela IA.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
