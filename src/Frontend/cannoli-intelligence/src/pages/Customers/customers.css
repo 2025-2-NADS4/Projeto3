@@ -164,3 +164,19 @@
   gap: 24px;
   align-items: stretch;
 }
+
+.ai-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ai-name {
+  margin-right: 8px;
+}
+
+.ai-tag {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
