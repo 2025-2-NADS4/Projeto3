@@ -312,3 +312,164 @@ export const getCampanhasAdmin = async (req, res) => {
     return res.status(500).json({ erro: 'Erro no servidor ao carregar dashboard (admin).' })
   }
 }
+
+// GET /api/estabelecimento/campanhas/sugestoes
+export async function getCampanhasSugestoesEstabelecimento(req, res) {
+  try {
+    const { establishment_id } = req.user;
+    if (!establishment_id) {
+      return res.status(401).json({ erro: "Usuário não autenticado!" });
+    }
+
+    const [rows] = await db.execute(
+      `SELECT 
+         s.campaignId,
+         c.name       AS campanha_nome,
+         s.status_previsto,
+         s.confianca,
+         s.grupo,
+         s.gerado_em
+       FROM campaign_ai_sugestoes s
+       JOIN campaign c ON c.id = s.campaignId
+       WHERE s.storeId = ?
+       ORDER BY 
+         CASE 
+           WHEN s.grupo = 'priorizar' THEN 1
+           WHEN s.grupo = 'ajustar_ou_pausar' THEN 2
+           ELSE 3
+         END,
+         s.confianca DESC`,
+      [establishment_id]
+    );
+
+    const priorizar = [];
+    const ajustarOuPausar = [];
+    const outros = [];
+
+    for (const r of rows) {
+      const item = {
+        campaignId: r.campaignId,
+        nome: r.campanha_nome,
+        status_previsto: r.status_previsto,
+        confianca: Number(r.confianca),
+        gerado_em: r.gerado_em,
+      };
+
+      if (r.grupo === "priorizar") priorizar.push(item);
+      else if (r.grupo === "ajustar_ou_pausar") ajustarOuPausar.push(item);
+      else outros.push(item);
+    }
+
+    return res.json({
+      priorizar,
+      ajustar_ou_pausar: ajustarOuPausar,
+      outros,
+    });
+  } catch (err) {
+    console.error("Erro em getCampanhasSugestoesEstabelecimento:", err);
+    return res.status(500).json({ erro: "Erro ao carregar sugestões de campanhas (estab)." });
+  }
+}
+
+// GET /api/admin/campanhas/sugestoes
+export async function getCampanhasSugestoesAdmin(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res.status(401).json({ erro: "Usuário não autenticado!" });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "admin") {
+      return res
+        .status(403)
+        .json({ erro: "Acesso negado! Apenas administradores podem acessar." });
+    }
+
+    let { storeName } = req.query;
+    let storeId = null;
+
+    // Se vier storeName, converte para establishment_id (storeId)
+    if (storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+      if (loja) {
+        storeId = loja.establishment_id;
+      }
+    }
+
+    const condicoes = [];
+    const params = [];
+
+    if (storeId) {
+      condicoes.push("s.storeId = ?");
+      params.push(storeId);
+    }
+
+    const clausula = condicoes.length ? `WHERE ${condicoes.join(" AND ")}` : "";
+
+    const [rows] = await db.execute(
+      `SELECT 
+         s.storeId,
+         e.store_name,
+         s.campaignId,
+         c.name AS campanha_nome,
+         s.status_previsto,
+         s.confianca,
+         s.grupo,
+         s.gerado_em
+       FROM campaign_ai_sugestoes s
+       JOIN campaign c ON c.id = s.campaignId
+  LEFT JOIN estabelecimentos e
+         ON e.establishment_id = s.storeId
+       ${clausula}
+       ORDER BY 
+         e.store_name,
+         CASE 
+           WHEN s.grupo = 'priorizar' THEN 1
+           WHEN s.grupo = 'ajustar_ou_pausar' THEN 2
+           ELSE 3
+         END,
+         s.confianca DESC`,
+      params
+    );
+
+    // Devolve a lista de lojas disponíveis para o filtro
+    const [lojasRows] = await db.execute(
+      `SELECT DISTINCT e.store_name
+         FROM campaign_ai_sugestoes s
+         JOIN estabelecimentos e ON e.establishment_id = s.storeId
+        ORDER BY e.store_name`
+    );
+    const lojas = lojasRows.map((l) => l.store_name);
+
+    return res.json({
+      meta: {
+        storeName: storeName || null,
+      },
+      filtros: {
+        lojas,
+      },
+      sugestoes: rows.map((r) => ({
+        storeId: r.storeId,
+        storeName: r.store_name,
+        campaignId: r.campaignId,
+        nome: r.campanha_nome,
+        status_previsto: r.status_previsto,
+        confianca: Number(r.confianca),
+        grupo: r.grupo,
+        gerado_em: r.gerado_em,
+      })),
+    });
+  } catch (erro) {
+    console.error("Erro em getCampanhasSugestoesAdmin:", erro);
+    return res
+      .status(500)
+      .json({ erro: "Erro ao carregar sugestões de campanhas (admin)." });
+  }
+}
