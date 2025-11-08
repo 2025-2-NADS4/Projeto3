@@ -21,6 +21,7 @@ export default function CustomersEstab() {
   const [err, setErr] = useState("");
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState(""); 
   const [lojaNome, setLojaNome] = useState("Estabelecimento");
 
   const [kpis, setKpis] = useState({});
@@ -30,8 +31,8 @@ export default function CustomersEstab() {
     faixas: {},
   });
 
-  const [heatmap, setHeatmap] = useState([]);         
-  const [aniversariantes, setAniversariantes] = useState([]); 
+  const [heatmap, setHeatmap] = useState([]);
+  const [aniversariantes, setAniversariantes] = useState([]);
   const [filtros, setFiltros] = useState({ mesesDisponiveis: [] });
 
   async function fetchData(params = {}) {
@@ -47,9 +48,9 @@ export default function CustomersEstab() {
         meta,
         kpis,
         graficos,
-        heatmap: hm,               
-        aniversariantes: bdays,     
-        filtros: filtrosResp,      
+        heatmap: hm,
+        aniversariantes: bdays,
+        filtros: filtrosResp,
       } = res.data;
 
       setLojaNome(meta?.loja?.nome || "Estabelecimento");
@@ -72,10 +73,19 @@ export default function CustomersEstab() {
     }
   }
 
-  useEffect(() => { fetchData({}); }, []);
   useEffect(() => {
-    if (mesInicio || mesFim) fetchData({ mesInicio, mesFim });
-  }, [mesInicio, mesFim]);
+    fetchData({});
+  }, []);
+
+  useEffect(() => {
+    if (mesInicio || mesFim || statusFiltro) {
+      fetchData({
+        mesInicio,
+        mesFim,
+        status: statusFiltro || undefined,
+      });
+    }
+  }, [mesInicio, mesFim, statusFiltro]);
 
   const accent = "#ff7a00";
   const rail = "#1f2835";
@@ -97,7 +107,11 @@ export default function CustomersEstab() {
     maintainAspectRatio: false,
     scales: {
       x: { grid: { color: rail }, ticks: { color: "#cdd6e4" } },
-      y: { grid: { color: rail }, ticks: { color: "#cdd6e4" }, beginAtZero: true },
+      y: {
+        grid: { color: rail },
+        ticks: { color: "#cdd6e4" },
+        beginAtZero: true,
+      },
     },
     plugins: { legend: { labels: { color: "#cdd6e4" } } },
   };
@@ -109,7 +123,8 @@ export default function CustomersEstab() {
     const values = heatmap.flat?.() || [];
     const max = values.length ? Math.max(...values) : 0;
 
-    const scale = (v) => (max <= 0 ? 0.12 : Math.min(1, 0.12 + (v / max) * 0.88));
+    const scale = (v) =>
+      max <= 0 ? 0.12 : Math.min(1, 0.12 + (v / max) * 0.88);
     return { flatMax: max, scaleCell: scale };
   }, [heatmap]);
 
@@ -121,27 +136,48 @@ export default function CustomersEstab() {
           <div className="topbar">
             <h1>Dashboard - Clientes ({lojaNome})</h1>
 
-            {/* Barra de filtros, quando estiver disponivel os mesesDisponiveis do backend */}
-            {!!(filtros.mesesDisponiveis?.length) && (
-              <div className="filters">
-                <div className="field">
-                  <label>Mês inicial</label>
-                  <select value={mesInicio} onChange={(e) => setMesInicio(e.target.value)}>
-                    {filtros.mesesDisponiveis.map((m, i) => (
-                      <option key={i} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Mês final</label>
-                  <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
-                    {filtros.mesesDisponiveis.map((m, i) => (
-                      <option key={i} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
+            {/* Barra de filtros */}
+            <div className="filters">
+              <div className="field">
+                <label>Status do cliente</label>
+                <select
+                  value={statusFiltro}
+                  onChange={(e) => setStatusFiltro(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="ativos">Ativos</option>
+                  <option value="inativos">Inativos</option>
+                </select>
               </div>
-            )}
+
+              <div className="field">
+                <label>Mês inicial</label>
+                <select
+                  value={mesInicio}
+                  onChange={(e) => setMesInicio(e.target.value)}
+                >
+                  {filtros.mesesDisponiveis.map((m, i) => (
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Mês final</label>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
+                  {filtros.mesesDisponiveis.map((m, i) => (
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {err && <div className="errorBox">{err}</div>}
@@ -202,7 +238,9 @@ export default function CustomersEstab() {
                 <div className="heatmap-legend">
                   <span />
                   {horas.map((h) => (
-                    <span key={h} className="hm-hour">{h}</span>
+                    <span key={h} className="hm-hour">
+                      {h}
+                    </span>
                   ))}
                 </div>
 
@@ -219,7 +257,9 @@ export default function CustomersEstab() {
                             key={`${di}-${h}`}
                             className="hm-cell"
                             title={`${d} ${h}:00 — ${v} pedidos`}
-                            style={{ backgroundColor: `rgba(255,122,0,${a})` }}
+                            style={{
+                              backgroundColor: `rgba(255,122,0,${a})`,
+                            }}
                           />
                         );
                       })}
@@ -246,9 +286,11 @@ export default function CustomersEstab() {
           <div className="panel">
             <div className="panel_title">Aniversariantes do mês 🎂</div>
             <ul className="birthday-list">
-              {aniversariantes?.length
-                ? aniversariantes.map((n, i) => <li key={i}>{n}</li>)
-                : <li>Nenhum aniversariante encontrado</li>}
+              {aniversariantes?.length ? (
+                aniversariantes.map((n, i) => <li key={i}>{n}</li>)
+              ) : (
+                <li>Nenhum aniversariante encontrado</li>
+              )}
             </ul>
           </div>
         </div>
