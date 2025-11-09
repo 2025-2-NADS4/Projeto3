@@ -123,6 +123,26 @@
   border-radius: 0 !important;
 }
 
+.export-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #ff7a00;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.export-btn:hover {
+  background: #ff9838;
+}
+
+.export-btn:active {
+  transform: scale(0.97);
+}
+
 @media (max-width: 1200px){
   .kpis{ grid-template-columns: repeat(2, 1fr); }
   .grid2{ grid-template-columns: 1fr; }
