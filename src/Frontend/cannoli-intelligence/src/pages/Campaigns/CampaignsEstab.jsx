@@ -272,12 +272,44 @@ export default function CampaignsEstab() {
     plugins: { legend: { labels: { color: "#cdd6e4" } } },
   };
 
+   async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+
+      const res = await axios.get(
+        `${API_BASE}/api/estabelecimento/campanhas/export/pdf`,
+        {
+          params: { mesInicio, mesFim, campanhaId },
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `relatorio_campanhas_${lojaNome.replace(
+        /\s+/g,
+        "_"
+      )}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar o PDF de campanhas.");
+    }
+  }
+
   return (
     <div className="layout">
       <Sidebar />
       <div className="main">
         <div className="wrap">
-          <div className="topbar">
+         <div className="topbar">
             <h1>Dashboard - Campanhas ({lojaNome})</h1>
             <div className="filters">
               <div className="field">
@@ -319,6 +351,18 @@ export default function CampaignsEstab() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Botão de Exportação em PDF */}
+              <div className="field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="export-btn"
+                  onClick={handleExportPdf}
+                >
+                  Exportar PDF
+                </button>
               </div>
             </div>
           </div>
