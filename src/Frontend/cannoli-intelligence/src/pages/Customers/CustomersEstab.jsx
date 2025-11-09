@@ -14,14 +14,14 @@ import "./customers.css";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
 export default function CustomersEstab() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [mesInicio, setMesInicio] = useState("");
   const [mesFim, setMesFim] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState(""); 
+  const [statusFiltro, setStatusFiltro] = useState("");
   const [lojaNome, setLojaNome] = useState("Estabelecimento");
 
   const [kpis, setKpis] = useState({});
@@ -34,6 +34,8 @@ export default function CustomersEstab() {
   const [heatmap, setHeatmap] = useState([]);
   const [aniversariantes, setAniversariantes] = useState([]);
   const [filtros, setFiltros] = useState({ mesesDisponiveis: [] });
+
+  const [exporting, setExporting] = useState(false);
 
   async function fetchData(params = {}) {
     setLoading(true);
@@ -128,6 +130,42 @@ export default function CustomersEstab() {
     return { flatMax: max, scaleCell: scale };
   }, [heatmap]);
 
+  async function handleExportPdf() {
+    try {
+      setExporting(true);
+      const token = localStorage.getItem("userToken");
+
+      const res = await axios.get(
+        `${API_BASE}/api/estabelecimento/clientes/export/pdf`,
+        {
+          params: {
+            mesInicio: mesInicio || undefined,
+            mesFim: mesFim || undefined,
+            status: statusFiltro || undefined,
+          },
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeName = lojaNome.replace(/\s+/g, "_");
+      link.download = `relatorio_clientes_${safeName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de clientes.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="layout">
       <Sidebar />
@@ -136,7 +174,7 @@ export default function CustomersEstab() {
           <div className="topbar">
             <h1>Dashboard - Clientes ({lojaNome})</h1>
 
-            {/* Barra de filtros */}
+            {/* Barra de filtros + botão de exportar */}
             <div className="filters">
               <div className="field">
                 <label>Status do cliente</label>
@@ -176,6 +214,19 @@ export default function CustomersEstab() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Botão de Exportar em PDF */}
+              <div className="field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  disabled={exporting}
+                >
+                  {exporting ? "Gerando PDF..." : "Exportar PDF"}
+                </button>
               </div>
             </div>
           </div>
