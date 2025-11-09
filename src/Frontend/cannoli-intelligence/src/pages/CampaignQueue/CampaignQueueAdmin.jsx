@@ -227,9 +227,9 @@ export default function CampaignQueueAdmin() {
               <div className="kpi_hint">Mensagens visualizadas</div>
             </div>
             <div className="kpi">
-              <div className="kpi_title">Pendentes</div>
-              <div className="kpi_value">{kpis.pendentes ?? 0}</div>
-              <div className="kpi_hint">Aguardando leitura/envio</div>
+              <div className="kpi_title">Erros de envio</div>
+              <div className="kpi_value">{kpis.erros ?? 0}</div>
+              <div className="kpi_hint">Mensagens com falha no disparo</div>
             </div>
           </section>
 
