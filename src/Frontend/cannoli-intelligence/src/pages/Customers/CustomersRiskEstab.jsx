@@ -42,6 +42,8 @@ export default function CustomersRiskEstab() {
   const [filtroMes, setFiltroMes] = useState("");
   const [mesesUltimaCompra, setMesesUltimaCompra] = useState([]);
 
+  const [exporting, setExporting] = useState(false);
+
   const accent = "#ff7a00";
   const rail = "#1f2835";
   const ink = "#cdd6e4";
@@ -91,7 +93,7 @@ export default function CustomersRiskEstab() {
           }
         }
       });
-      const mesesOrdenados = Array.from(mesesSet).sort(); 
+      const mesesOrdenados = Array.from(mesesSet).sort();
       setMesesUltimaCompra(mesesOrdenados);
 
       setErr("");
@@ -99,7 +101,7 @@ export default function CustomersRiskEstab() {
       console.error(e);
       setErr(
         e?.response?.data?.erro ||
-          "Erro ao carregar clientes em risco (estabelecimento)."
+        "Erro ao carregar clientes em risco (estabelecimento)."
       );
     } finally {
       setLoading(false);
@@ -123,7 +125,7 @@ export default function CustomersRiskEstab() {
     if (!c.ultimaCompra) return null;
     const d = new Date(c.ultimaCompra);
     if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString().slice(0, 7); 
+    return d.toISOString().slice(0, 7);
   };
 
   function categoriaPorDias(dias) {
@@ -204,7 +206,7 @@ export default function CustomersRiskEstab() {
     ],
   };
 
-  // Top 10: mais tempo sem compra 
+  // Top 10: mais tempo sem compra
   const topBase = useMemo(
     () => listaFiltrada.slice(0, 10),
     [listaFiltrada]
@@ -280,6 +282,37 @@ export default function CustomersRiskEstab() {
     plugins: { legend: { labels: { color: ink } } },
   };
 
+  async function handleExportPdf() {
+    try {
+      setExporting(true);
+      const token = localStorage.getItem("userToken");
+
+      const res = await axios.get(
+        `${API_BASE}/api/estabelecimento/clientes-risco/export/pdf`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeName = lojaNome.replace(/\s+/g, "_");
+      link.download = `relatorio_clientes_risco_${safeName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de clientes em risco.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="layout">
       <Sidebar />
@@ -328,6 +361,19 @@ export default function CustomersRiskEstab() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Botão de exportar PDF */}
+              <div className="field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  disabled={exporting}
+                >
+                  {exporting ? "Gerando PDF..." : "Exportar PDF"}
+                </button>
               </div>
             </div>
           </div>
@@ -391,6 +437,16 @@ export default function CustomersRiskEstab() {
             </div>
           </div>
 
+          {/* Distribuição por dias sem compra (faixas) */}
+          <div className="panel">
+            <div className="panel_title">
+              Distribuição de dias sem compra (faixas)
+            </div>
+            <div className="chartbox">
+              <Bar data={dsHist} options={chartOpts} />
+            </div>
+          </div>
+
           {/* Tabela */}
           <div className="panel">
             <div className="panel_title">
@@ -430,8 +486,8 @@ export default function CustomersRiskEstab() {
                         <td>
                           {c.ultimaCompra
                             ? new Date(c.ultimaCompra).toLocaleDateString(
-                                "pt-BR"
-                              )
+                              "pt-BR"
+                            )
                             : "—"}
                         </td>
                       </tr>
