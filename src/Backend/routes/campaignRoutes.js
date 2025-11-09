@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import autenticarToken from '../middlewares/autenticarToken.js';
-import { getCampanhasEstabelecimento, getCampanhasAdmin, getCampanhasSugestoesAdmin, getCampanhasSugestoesEstabelecimento } from '../controllers/campaignController.js';
-import { getCampaignQueueAdmin, getCampaignQueueEstabelecimento } from '../controllers/campaignQueueController.js';
+import { getCampanhasEstabelecimento, getCampanhasAdmin, getCampanhasSugestoesAdmin, getCampanhasSugestoesEstabelecimento, exportCampanhasEstabPdf } from '../controllers/campaignController.js';
+import { getCampaignQueueAdmin, getCampaignQueueEstabelecimento, exportCampaignQueueEstabPdf } from '../controllers/campaignQueueController.js';
 
 const router = Router();
 
@@ -11,5 +11,8 @@ router.get('/estabelecimento/campaignqueue', autenticarToken, getCampaignQueueEs
 router.get('/admin/campaignqueue', autenticarToken, getCampaignQueueAdmin);
 router.get('/estabelecimento/campanhas/sugestoes', autenticarToken, getCampanhasSugestoesEstabelecimento);
 router.get('/admin/campanhas/sugestoes', autenticarToken, getCampanhasSugestoesAdmin);
+router.get("/estabelecimento/campanhas/export/pdf", autenticarToken, exportCampanhasEstabPdf);
+router.get("/estabelecimento/campaignqueue/export/pdf", autenticarToken, exportCampaignQueueEstabPdf);
+
 
 export default router;
