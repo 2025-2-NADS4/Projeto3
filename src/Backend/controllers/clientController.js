@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import PDFDocument from "pdfkit";
 
 // Função para calcular faixaEtaria
 function faixaEtaria(idade) {
@@ -338,5 +339,334 @@ export async function getClientesAdmin(req, res) {
   } catch (err) {
     console.error("Erro em getClientesAdmin:", err);
     res.status(500).json({ erro: "Erro ao carregar dados de clientes (admin)." });
+  }
+}
+
+// GET /api/estabelecimento/clientes/export/pdf
+export async function exportClientesEstabPdf(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res.status(401).json({ erro: "Usuário não autenticado!" });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "estabelecimento") {
+      return res
+        .status(403)
+        .json({ erro: "Acesso negado! Apenas estabelecimentos podem acessar." });
+    }
+
+    const lojaId = usuario.establishment_id;
+    const { mesInicio, mesFim, status: statusFiltro } = req.query;
+
+    // Carrega base de clientes
+    const [clientes] = await db.execute(
+      `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
+         FROM customer
+        WHERE companyId = ?`,
+      [lojaId]
+    );
+
+    // Nome da loja
+    const [[linhaLoja]] = await db.execute(
+      `SELECT store_name
+         FROM estabelecimentos
+        WHERE establishment_id = ?
+        LIMIT 1`,
+      [lojaId]
+    );
+    const lojaNome = linhaLoja?.store_name || "(Loja sem nome)";
+
+    // Filtros de período e status
+    const start = mesInicio ? new Date(`${mesInicio}-01`) : null;
+    const end = mesFim ? new Date(`${mesFim}-01`) : null;
+
+    const filtrados = clientes.filter((c) => {
+      const d = c.createdAt ? new Date(c.createdAt) : null;
+
+      if (start && d && d < start) return false;
+      if (end && d && d >= end) return false;
+
+      if (statusFiltro === "ativos" && !isAtivo(c.status_desc)) return false;
+      if (statusFiltro === "inativos" && isAtivo(c.status_desc)) return false;
+
+      return true;
+    });
+
+    // KPIs
+    const total = filtrados.length;
+    const ativos = filtrados.filter((c) => isAtivo(c.status_desc)).length;
+    const inativos = total - ativos;
+    const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
+
+    // Taxa de recompra (clientes com mais de 1 pedido)
+    const [pedidos] = await db.execute(
+      `SELECT customer, COUNT(*) AS qtd
+         FROM \`order\`
+        WHERE companyId = ?
+        GROUP BY customer`,
+      [lojaId]
+    );
+    const clientesComMaisDe1Pedido = pedidos.filter((p) => p.qtd > 1).length;
+    const taxaRecompra = total
+      ? Math.round((clientesComMaisDe1Pedido / total) * 100)
+      : 0;
+
+    // Detalhamento
+    const detalhes = filtrados.map((c) => {
+      const idade = calcularIdade(c.dateOfBirth);
+      const faixa = faixaEtaria(idade);
+      return { ...c, idade, faixa };
+    });
+
+    // Montagem do PDF
+    const doc = new PDFDocument({ margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Clientes_${lojaNome.replace(
+        /\s+/g,
+        "_"
+      )}.pdf"`
+    );
+
+    doc.pipe(res);
+
+    const pageWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const contentWidth = pageWidth;
+
+    // Cabeçalho
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text(
+        "Relatório de Clientes",
+        doc.page.margins.left,
+        undefined,
+        {
+          align: "center",
+          width: contentWidth,
+          underline: true,
+        }
+      )
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(lojaNome, doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          align: "center",
+          width: contentWidth,
+        }
+      )
+      .moveDown(1);
+
+    // Período
+    let legendaStatus = "todos os clientes";
+    if (statusFiltro === "ativos") legendaStatus = "apenas clientes ativos";
+    if (statusFiltro === "inativos") legendaStatus = "apenas clientes inativos";
+
+    doc
+      .fontSize(12)
+      .fillColor("#000")
+      .text(
+        `Período analisado: ${mesInicio || "início"} até ${mesFim || "atual"} (filtro de status: ${legendaStatus})`,
+        doc.page.margins.left,
+        undefined,
+        {
+          width: contentWidth,
+          align: "center",
+        }
+      )
+      .moveDown(0.6);
+
+    // Resumo geral (cards)
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", doc.page.margins.left, undefined, {
+        width: contentWidth,
+        align: "left",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 55;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, color) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor(color)
+        .lineWidth(1.2)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 8, boxY + 8, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+
+      doc
+        .fontSize(18)
+        .fillColor(color)
+        .text(String(valor), x + 8, boxY + 30, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+    };
+
+    drawKpiBox(
+      baseX,
+      "Total de clientes",
+      total,
+      "#ff7a00"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Clientes ativos",
+      `${ativos} (${pctAtivos}%)`,
+      "#28a745"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Clientes inativos",
+      inativos,
+      "#6c757d"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Taxa de recompra",
+      `${taxaRecompra}%`,
+      "#007bff"
+    );
+
+    doc.y = boxY + boxHeight + 40;
+
+    // Título da tabela
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text(
+        "Detalhamento dos clientes",
+        doc.page.margins.left,
+        undefined,
+        {
+          underline: true,
+          width: contentWidth,
+          align: "center",
+        }
+      )
+      .moveDown(0.6);
+
+    // Tabela
+    const tableWidth = contentWidth;
+    const colX = [
+      doc.page.margins.left,       // ID
+      doc.page.margins.left + 60,  // Nome
+      doc.page.margins.left + 240, // Status
+      doc.page.margins.left + 360, // Gênero
+      doc.page.margins.left + 440, // Cadastro em
+    ];
+    const colW = [50, 170, 110, 70, 110];
+    const headers = ["ID", "Nome", "Status", "Gênero", "Cadastro em"];
+
+    const drawHeader = (y) => {
+      doc.rect(doc.page.margins.left, y - 3, tableWidth, 20).fill("#ff7a00");
+
+      headers.forEach((h, i) => {
+        doc
+          .fillColor("#fff")
+          .fontSize(10)
+          .text(h, colX[i], y + 4, {
+            width: colW[i],
+            align: "left",
+          });
+      });
+    };
+
+    let y = doc.y;
+    drawHeader(y);
+    y += 24;
+    let altColor = false;
+
+    for (const c of detalhes) {
+      const genero = c.gender_clean || "Não informado";
+      const cadastro = c.createdAt
+        ? new Date(c.createdAt).toLocaleString("pt-BR")
+        : "—";
+
+      // Quebra de página
+      if (y > 740) {
+        doc.addPage();
+        y = 60;
+        drawHeader(y);
+        y += 24;
+      }
+
+      // Linha zebra
+      doc
+        .rect(doc.page.margins.left, y - 2, tableWidth, 18)
+        .fill(altColor ? "#f8f8f8" : "#ffffff");
+      altColor = !altColor;
+
+      doc
+        .fontSize(9.5)
+        .fillColor("#000")
+        .text(c.id, colX[0], y, { width: colW[0] })
+        .text(c.name || "-", colX[1], y, { width: colW[1] })
+        .text(c.status_desc || "-", colX[2], y, { width: colW[2] })
+        .text(genero, colX[3], y, { width: colW[3] })
+        .text(cadastro, colX[4], y, { width: colW[4] });
+
+      y += 18;
+    }
+
+    // Rodapé
+    doc
+      .moveDown(1)
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.margins.left + contentWidth, doc.y)
+      .stroke()
+      .moveDown(0.5);
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de Clientes — ${lojaNome}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          width: contentWidth,
+          align: "center",
+        }
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error("Erro em exportClientesEstabPdf:", err);
+    res
+      .status(500)
+      .json({ erro: "Erro ao gerar PDF de clientes (estab)." });
   }
 }
