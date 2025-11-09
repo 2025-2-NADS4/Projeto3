@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import PDFDocument from "pdfkit";
 
 // Função para calcular a diferença em dias entre hoje e a data da última compra
 function diasEntre(hoje, data) {
@@ -49,7 +50,7 @@ export async function getClientesRiscoEstabelecimento(req, res) {
 
     // Monta base com dias sem compra e categoria
     const baseRows = rows
-      .filter((r) => r.lastPurchase) 
+      .filter((r) => r.lastPurchase)
       .map((r) => {
         const last = new Date(r.lastPurchase);
         const dias = diasEntre(hoje, last);
@@ -208,8 +209,8 @@ export async function getClientesRiscoAdmin(req, res) {
           dias <= 30
             ? "Ativo (≤30d)"
             : dias <= 60
-            ? "Em risco (31–60d)"
-            : "Perdido (>60d)";
+              ? "Em risco (31–60d)"
+              : "Perdido (>60d)";
         return {
           customerId: r.customerId,
           customerName: r.customerName || `(Cliente ${r.customerId})`,
@@ -332,5 +333,339 @@ export async function getClientesRiscoAdmin(req, res) {
     res
       .status(500)
       .json({ erro: "Erro ao carregar clientes em risco (admin)." });
+  }
+}
+
+// GET /api/estabelecimento/clientes-risco/export/pdf
+export async function exportClientesRiscoEstabPdf(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res.status(401).json({ erro: "Usuário não autenticado!" });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "estabelecimento") {
+      return res
+        .status(403)
+        .json({ erro: "Acesso negado! Apenas estabelecimentos podem acessar." });
+    }
+
+    const establishment_id = usuario.establishment_id;
+    const hoje = new Date();
+
+    // Nome da loja
+    const [[linhaLoja]] = await db.execute(
+      `SELECT store_name
+         FROM estabelecimentos
+        WHERE establishment_id = ?
+        LIMIT 1`,
+      [establishment_id]
+    );
+    const lojaNome = linhaLoja?.store_name || "(Loja sem nome)";
+
+    // Última compra por cliente
+    const [rows] = await db.execute(
+      `
+      SELECT 
+        c.id   AS customerId,
+        c.name AS customerName,
+        o.companyId,
+        MAX(o.createdAt) AS lastPurchase
+      FROM \`order\` o
+      JOIN customer c ON c.id = o.customer
+      WHERE o.isTest = 0
+        AND o.companyId = ?
+      GROUP BY c.id, c.name, o.companyId
+      `,
+      [establishment_id]
+    );
+
+    // Monta base com dias sem compra e categoria
+    const baseRows = rows
+      .filter((r) => r.lastPurchase)
+      .map((r) => {
+        const last = new Date(r.lastPurchase);
+        const dias = diasEntre(hoje, last);
+        const bucket = categoriaPorDias(dias);
+        return {
+          customerId: r.customerId,
+          customerName: r.customerName || `(Cliente ${r.customerId})`,
+          companyId: r.companyId,
+          storeName: lojaNome,
+          lastPurchase: last,
+          diasSemCompra: dias,
+          categoria: bucket,
+        };
+      });
+
+    const base = baseRows.length;
+
+    // Contadores por categoria
+    const counts = {
+      "Ativo (≤30d)": 0,
+      "Em risco (31–60d)": 0,
+      "Perdido (>60d)": 0,
+    };
+
+    baseRows.forEach((r) => {
+      if (counts[r.categoria] !== undefined) counts[r.categoria]++;
+    });
+
+    const qtdAtivos = counts["Ativo (≤30d)"];
+    const qtdRisco = counts["Em risco (31–60d)"];
+    const qtdPerdidos = counts["Perdido (>60d)"];
+
+    // Lista de quem está mais tempo sem comprar ordenada
+    const listaOrdenada = [...baseRows].sort(
+      (a, b) => b.diasSemCompra - a.diasSemCompra
+    );
+
+    // Montagem do PDF
+    const doc = new PDFDocument({ margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Clientes_Risco_${lojaNome.replace(
+        /\s+/g,
+        "_"
+      )}.pdf"`
+    );
+
+    doc.pipe(res);
+
+    const pageWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const contentWidth = pageWidth;
+
+    // Cabeçalho
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text(
+        "Relatório de Clientes em Risco",
+        doc.page.margins.left,
+        undefined,
+        {
+          align: "center",
+          width: contentWidth,
+          underline: true,
+        }
+      )
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(lojaNome, doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          align: "center",
+          width: contentWidth,
+        }
+      )
+      .moveDown(1);
+
+    // Período
+    doc
+      .fontSize(12)
+      .fillColor("#000")
+      .text(
+        `Análise baseada na data da última compra até: ${hoje.toLocaleDateString(
+          "pt-BR"
+        )}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          width: contentWidth,
+          align: "center",
+        }
+      )
+      .moveDown(0.6);
+
+    // Resumo geral (cards)
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", doc.page.margins.left, undefined, {
+        width: contentWidth,
+        align: "left",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 55;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, color) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor(color)
+        .lineWidth(1.2)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 8, boxY + 8, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+
+      doc
+        .fontSize(18)
+        .fillColor(color)
+        .text(String(valor), x + 8, boxY + 30, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+    };
+
+    drawKpiBox(
+      baseX,
+      "Base de clientes com compra",
+      base,
+      "#ff7a00"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Ativos (<= 30 dias)",
+      qtdAtivos,
+      "#28a745"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Em risco (31–60 dias)",
+      qtdRisco,
+      "#ffc107"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Perdidos (>60 dias)",
+      qtdPerdidos,
+      "#dc3545"
+    );
+
+    doc.y = boxY + boxHeight + 40;
+
+    // Título da tabela
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text(
+        "Lista de clientes por tempo sem compra",
+        doc.page.margins.left,
+        undefined,
+        {
+          underline: true,
+          width: contentWidth,
+          align: "center",
+        }
+      )
+      .moveDown(0.6);
+
+    // Tabela
+    const tableWidth = contentWidth;
+    const colX = [
+      doc.page.margins.left, // ID
+      doc.page.margins.left + 60, // Nome
+      doc.page.margins.left + 260, // Categoria
+      doc.page.margins.left + 380, // Dias sem compra
+      doc.page.margins.left + 460, // Última compra
+    ];
+    const colW = [50, 190, 110, 70, 100];
+    const headers = ["ID", "Nome", "Categoria", "Dias", "Última compra"];
+
+    const drawHeader = (y) => {
+      doc.rect(doc.page.margins.left, y - 3, tableWidth, 20).fill("#ff7a00");
+
+      headers.forEach((h, i) => {
+        doc
+          .fillColor("#fff")
+          .fontSize(10)
+          .text(h, colX[i], y + 4, {
+            width: colW[i],
+            align: "left",
+          });
+      });
+    };
+
+    let y = doc.y;
+    drawHeader(y);
+    y += 24;
+    let altColor = false;
+
+    for (const r of listaOrdenada) {
+      const ultima = r.lastPurchase
+        ? r.lastPurchase.toLocaleString("pt-BR")
+        : "—";
+      const dias = r.diasSemCompra ?? "—";
+
+      // Quebra de página
+      if (y > 740) {
+        doc.addPage();
+        y = 60;
+        drawHeader(y);
+        y += 24;
+      }
+
+      // Linha zebra
+      doc
+        .rect(doc.page.margins.left, y - 2, tableWidth, 18)
+        .fill(altColor ? "#f8f8f8" : "#ffffff");
+      altColor = !altColor;
+
+      doc
+        .fontSize(9.5)
+        .fillColor("#000")
+        .text(r.customerId, colX[0], y, { width: colW[0] })
+        .text(r.customerName || "-", colX[1], y, { width: colW[1] })
+        .text(r.categoria || "-", colX[2], y, { width: colW[2] })
+        .text(String(dias), colX[3], y, { width: colW[3] })
+        .text(ultima, colX[4], y, { width: colW[4] });
+
+      y += 18;
+    }
+
+    // Rodapé
+    doc
+      .moveDown(1)
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.margins.left + contentWidth, doc.y)
+      .stroke()
+      .moveDown(0.5);
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de Clientes em Risco — ${lojaNome}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          width: contentWidth,
+          align: "center",
+        }
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error("Erro em exportClientesRiscoEstabPdf:", err);
+    res.status(500).json({
+      erro: "Erro ao gerar PDF de clientes em risco.",
+    });
   }
 }
