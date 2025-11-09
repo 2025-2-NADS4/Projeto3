@@ -42,15 +42,16 @@ export default function OrdersEstab() {
   });
 
   const [graficos, setGraficos] = useState({
-    status: [],      
-    canal: [],       
-    receitaMes: [],  
-    ticketCanal: [], 
-    tempoMedio: [],  
-    horarios: [],   
+    status: [],
+    canal: [],
+    receitaMes: [],
+    ticketCanal: [],
+    tempoMedio: [],
+    horarios: [],
   });
 
   const [filtros, setFiltros] = useState({ mesesDisponiveis: [] });
+  const [exporting, setExporting] = useState(false);
 
   async function fetchData(params = {}) {
     setLoading(true);
@@ -135,35 +136,110 @@ export default function OrdersEstab() {
   };
 
   // Memo dos gráficos
-  const statusLabels = useMemo(() => graficos.status?.map(s => s.status ?? "—") || [], [graficos]);
-  const statusValues = useMemo(() => graficos.status?.map(s => Number(s.qtde) || 0) || [], [graficos]);
+  const statusLabels = useMemo(
+    () => graficos.status?.map((s) => s.status ?? "—") || [],
+    [graficos]
+  );
+  const statusValues = useMemo(
+    () => graficos.status?.map((s) => Number(s.qtde) || 0) || [],
+    [graficos]
+  );
 
-  const canalLabels = useMemo(() => graficos.canal?.map(c => c.canal ?? "—") || [], [graficos]);
-  const canalValues = useMemo(() => graficos.canal?.map(c => Number(c.qtde) || 0) || [], [graficos]);
+  const canalLabels = useMemo(
+    () => graficos.canal?.map((c) => c.canal ?? "—") || [],
+    [graficos]
+  );
+  const canalValues = useMemo(
+    () => graficos.canal?.map((c) => Number(c.qtde) || 0) || [],
+    [graficos]
+  );
 
-  const receitaLabels = useMemo(() => graficos.receitaMes?.map(r => r.mes) || [], [graficos]);
-  const receitaValues = useMemo(() => graficos.receitaMes?.map(r => Number(r.receita) || 0) || [], [graficos]);
+  const receitaLabels = useMemo(
+    () => graficos.receitaMes?.map((r) => r.mes) || [],
+    [graficos]
+  );
+  const receitaValues = useMemo(
+    () => graficos.receitaMes?.map((r) => Number(r.receita) || 0) || [],
+    [graficos]
+  );
 
-  const ticketCanalLabels = useMemo(() => graficos.ticketCanal?.map(t => t.canal ?? "—") || [], [graficos]);
-  const ticketCanalValues = useMemo(() => graficos.ticketCanal?.map(t => Number(t.ticket_medio) || 0) || [], [graficos]);
+  const ticketCanalLabels = useMemo(
+    () => graficos.ticketCanal?.map((t) => t.canal ?? "—") || [],
+    [graficos]
+  );
+  const ticketCanalValues = useMemo(
+    () => graficos.ticketCanal?.map((t) => Number(t.ticket_medio) || 0) || [],
+    [graficos]
+  );
 
-  const tempoLabels = useMemo(() => graficos.tempoMedio?.map(t => t.tipo ?? "—") || [], [graficos]);
-  const tempoValues = useMemo(() => graficos.tempoMedio?.map(t => Number(t.tempo_medio) || 0) || [], [graficos]);
+  const tempoLabels = useMemo(
+    () => graficos.tempoMedio?.map((t) => t.tipo ?? "—") || [],
+    [graficos]
+  );
+  const tempoValues = useMemo(
+    () => graficos.tempoMedio?.map((t) => Number(t.tempo_medio) || 0) || [],
+    [graficos]
+  );
 
   const horaLabels = useMemo(
-    () => (graficos.horarios?.length ? graficos.horarios.map(h => String(h.hora).padStart(2, "0")) : []),
+    () =>
+      graficos.horarios?.length
+        ? graficos.horarios.map((h) => String(h.hora).padStart(2, "0"))
+        : [],
     [graficos]
   );
   const horaValues = useMemo(
-    () => (graficos.horarios?.length ? graficos.horarios.map(h => Number(h.qtde) || 0) : []),
+    () =>
+      graficos.horarios?.length
+        ? graficos.horarios.map((h) => Number(h.qtde) || 0)
+        : [],
     [graficos]
   );
 
   // Formata helpers
   const fmtMoney = (v) =>
-    (typeof v === "number" ? v : Number(v || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    (typeof v === "number" ? v : Number(v || 0)).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
   const kpi = kpis || {};
+
+  // Exportar PDF
+  async function handleExportPdf() {
+    try {
+      setExporting(true);
+      const token = localStorage.getItem("userToken");
+
+      const res = await axios.get(
+        `${API_BASE}/api/estabelecimento/pedidos/export/pdf`,
+        {
+          params: {
+            mesInicio: mesInicio || undefined,
+            mesFim: mesFim || undefined,
+          },
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeName = lojaNome.replace(/\s+/g, "_");
+      link.download = `relatorio_pedidos_${safeName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de pedidos.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="layout">
@@ -172,22 +248,48 @@ export default function OrdersEstab() {
         <div className="wrap">
           <div className="topbar">
             <h1>Dashboard - Pedidos ({lojaNome})</h1>
+
+            {/* Filtros + botão */}
             <div className="filters">
               <div className="field">
                 <label>Mês inicial</label>
-                <select value={mesInicio} onChange={(e) => setMesInicio(e.target.value)}>
+                <select
+                  value={mesInicio}
+                  onChange={(e) => setMesInicio(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
-                    <option key={i} value={m}>{m}</option>
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Mês final</label>
-                <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
-                    <option key={i} value={m}>{m}</option>
+                    <option key={i} value={m}>
+                      {m}
+                    </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Botão de Exportar PDF */}
+              <div className="field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  disabled={exporting}
+                >
+                  {exporting ? "Gerando PDF..." : "Exportar PDF"}
+                </button>
               </div>
             </div>
           </div>
@@ -203,18 +305,22 @@ export default function OrdersEstab() {
             </div>
             <div className="kpi">
               <div className="kpi_title">Receita total</div>
-              <div className="kpi_value">{fmtMoney(kpi.receita_total ?? 0)}</div>
+              <div className="kpi_value">
+                {fmtMoney(kpi.receita_total ?? 0)}
+              </div>
               <div className="kpi_hint">Período selecionado</div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Ticket médio (geral)</div>
-              <div className="kpi_value">{fmtMoney(kpi.ticket_medio_geral ?? 0)}</div>
+              <div className="kpi_value">
+                {fmtMoney(kpi.ticket_medio_geral ?? 0)}
+              </div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Taxa de cancelamento</div>
-                <div className="kpi_value">
+              <div className="kpi_value">
                 {Number(kpi.taxa_cancelamento || 0).toFixed(1)}%
-                </div>
+              </div>
               <div className="kpi_hint">Cancelados / Total</div>
             </div>
           </section>
@@ -224,14 +330,20 @@ export default function OrdersEstab() {
             <div className="panel">
               <div className="panel_title">Pedidos por status</div>
               <div className="chartbox">
-                <Bar data={toBar(statusLabels, statusValues, "Qtd")} options={opts} />
+                <Bar
+                  data={toBar(statusLabels, statusValues, "Qtd")}
+                  options={opts}
+                />
               </div>
             </div>
 
             <div className="panel">
               <div className="panel_title">Pedidos por canal de venda</div>
               <div className="chartbox">
-                <Bar data={toBar(canalLabels, canalValues, "Qtd")} options={opts} />
+                <Bar
+                  data={toBar(canalLabels, canalValues, "Qtd")}
+                  options={opts}
+                />
               </div>
             </div>
           </div>
@@ -240,7 +352,10 @@ export default function OrdersEstab() {
           <div className="panel">
             <div className="panel_title">Receita por mês</div>
             <div className="chartbox tall">
-              <Line data={toLine(receitaLabels, receitaValues, "Receita (R$)")} options={opts} />
+              <Line
+                data={toLine(receitaLabels, receitaValues, "Receita (R$)")}
+                options={opts}
+              />
             </div>
           </div>
 
@@ -260,7 +375,11 @@ export default function OrdersEstab() {
                         ticks: {
                           color: ink,
                           callback: (v) =>
-                            Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }),
+                            Number(v).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                              maximumFractionDigits: 0,
+                            }),
                         },
                       },
                     },
@@ -270,7 +389,9 @@ export default function OrdersEstab() {
             </div>
 
             <div className="panel">
-              <div className="panel_title">Tempo médio de preparo por tipo</div>
+              <div className="panel_title">
+                Tempo médio de preparo por tipo
+              </div>
               <div className="chartbox">
                 <Bar
                   data={toBar(tempoLabels, tempoValues, "Minutos")}
@@ -278,7 +399,10 @@ export default function OrdersEstab() {
                     ...opts,
                     scales: {
                       ...opts.scales,
-                      y: { ...opts.scales.y, ticks: { color: ink, callback: (v) => `${v}m` } },
+                      y: {
+                        ...opts.scales.y,
+                        ticks: { color: ink, callback: (v) => `${v}m` },
+                      },
                     },
                   }}
                 />
