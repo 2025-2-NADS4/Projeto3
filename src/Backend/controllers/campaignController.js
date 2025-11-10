@@ -117,6 +117,14 @@ export const getCampanhasEstabelecimento = async (req, res) => {
       [lojaId]
     )
 
+    const [mesesFiltro] = await db.execute(
+      `SELECT DISTINCT _mes AS mes
+         FROM campaign
+        WHERE storeId = ?
+        ORDER BY mes ASC`,
+      [lojaId]
+    )
+
     const total = Number(kpiTotal.total || 0)
     const ativas = Number(kpiAtivas.total || 0)
     const concluidas = Number(kpiConcluidas.total || 0)
@@ -142,7 +150,7 @@ export const getCampanhasEstabelecimento = async (req, res) => {
       },
       filtros: {
         campanhas: campanhasFiltro.map(c => c.nomeCampanha),
-        mesesDisponiveis: campanhasPorMes.map(m => m.mes)
+        mesesDisponiveis: mesesFiltro.map(m => m.mes)  
       }
     })
   } catch (erro) {
