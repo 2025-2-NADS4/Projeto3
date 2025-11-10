@@ -53,6 +53,7 @@ export default function AdminOverview() {
     ticketPorCanal: [],
     preparoPorLoja: [],
     recompraMes: [],
+    preparoVsRecompraLojas: [],
   });
 
   const [filtros, setFiltros] = useState({
@@ -92,6 +93,7 @@ export default function AdminOverview() {
         ticketPorCanal: graficos?.ticketPorCanal ?? [],
         preparoPorLoja: graficos?.preparoPorLoja ?? [],
         recompraMes: graficos?.recompraMes ?? [],
+        preparoVsRecompraLojas: graficos?.preparoVsRecompraLojas ?? [],
       });
 
       setFiltros({
@@ -108,10 +110,50 @@ export default function AdminOverview() {
       console.error(e);
       setErr(
         e?.response?.data?.erro ||
-          "Erro ao carregar dashboard de estabelecimentos (admin)."
+        "Erro ao carregar dashboard de estabelecimentos (admin)."
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) {
+        alert("Token não encontrado. Faça login novamente.");
+        return;
+      }
+
+      const params = {
+        companyId: companyId || undefined,
+        mesInicio: mesInicio || undefined,
+        mesFim: mesFim || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/overview/export/pdf`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Admin_Overview.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF da visão geral (admin).");
     }
   }
 
@@ -236,7 +278,7 @@ export default function AdminOverview() {
     ],
   };
 
-  // Tempo médio de preparo por loja – usa nomeLoja
+  // Tempo médio de preparo por loja
   const prepLabels = useMemo(
     () => g.preparoPorLoja.map((x) => x.nomeLoja || x.companyId),
     [g]
@@ -278,7 +320,7 @@ export default function AdminOverview() {
     ],
   };
 
-  // Heatmap (Lojas x Mes)
+  // Heatmap (Lojas x Mês)
   const hmLojaOrder = useMemo(
     () =>
       Array.from(
@@ -299,7 +341,7 @@ export default function AdminOverview() {
   );
 
   const hmMatrix = useMemo(() => {
-    const map = new Map(); 
+    const map = new Map();
     let max = 0;
     g.performanceHeatmap.forEach((r) => {
       const key = `${r.companyId}|${r.mes}`;
@@ -314,6 +356,49 @@ export default function AdminOverview() {
 
     return { matrix, max };
   }, [g, hmLojaOrder, hmMesOrder]);
+
+  // Gráfico tempo x recompra por loja
+  const relLabels = useMemo(
+    () =>
+      g.preparoVsRecompraLojas.map(
+        (x) => x.nomeLoja || x.companyId
+      ),
+    [g]
+  );
+  const relTempo = useMemo(
+    () =>
+      g.preparoVsRecompraLojas.map(
+        (x) => Number(x.tempo_preparo_medio_min) || 0
+      ),
+    [g]
+  );
+  const relRecompra = useMemo(
+    () =>
+      g.preparoVsRecompraLojas.map(
+        (x) => Number(x.taxa_recompra) || 0
+      ),
+    [g]
+  );
+
+  const dsTempoVsRecompra = {
+    labels: relLabels,
+    datasets: [
+      {
+        label: "Tempo médio de preparo (min)",
+        data: relTempo,
+        backgroundColor: accent,
+        borderRadius: 8,
+        yAxisID: "y",
+      },
+      {
+        label: "Taxa de recompra (%)",
+        data: relRecompra,
+        backgroundColor: "#20c997",
+        borderRadius: 8,
+        yAxisID: "y1",
+      },
+    ],
+  };
 
   const opts = {
     responsive: true,
@@ -335,6 +420,36 @@ export default function AdminOverview() {
         grid: { color: rail },
         ticks: { color: ink },
         beginAtZero: true,
+      },
+    },
+  };
+
+  // Opções com dois eixos Y
+  const optsTempoRecompra = {
+    ...opts,
+    scales: {
+      x: { grid: { color: rail }, ticks: { color: ink } },
+      y: {
+        position: "left",
+        beginAtZero: true,
+        grid: { color: rail },
+        ticks: { color: ink },
+        title: {
+          display: true,
+          text: "Minutos",
+          color: ink,
+        },
+      },
+      y1: {
+        position: "right",
+        beginAtZero: true,
+        grid: { drawOnChartArea: false },
+        ticks: { color: ink },
+        title: {
+          display: true,
+          text: "% de recompra",
+          color: ink,
+        },
       },
     },
   };
@@ -390,6 +505,23 @@ export default function AdminOverview() {
                   ))}
                 </select>
               </div>
+
+              {/* Botão para Exportar em PDF */}
+              <div className="field">
+                <label style={{ visibility: "hidden" }}>.</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  style={{
+                    width: "auto",
+                    paddingInline: 24,
+                    whiteSpace: "nowrap",
+                  }}
+                  onClick={handleExportPdf}
+                >
+                  Exportar PDF
+                </button>
+              </div>
             </div>
           </div>
 
@@ -412,9 +544,7 @@ export default function AdminOverview() {
             </div>
             <div className="kpi">
               <div className="kpi_title">Lojas ativas</div>
-              <div className="kpi_value">
-                {kpi.lojas_ativas ?? "—"}
-              </div>
+              <div className="kpi_value">{kpi.lojas_ativas ?? "—"}</div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Taxa de cancelamento</div>
@@ -457,7 +587,9 @@ export default function AdminOverview() {
           {/* Distribuição de pedidos por canal */}
           <div className="grid2">
             <div className="panel">
-              <div className="panel_title">Distribuição de pedidos por canal</div>
+              <div className="panel_title">
+                Distribuição de pedidos por canal
+              </div>
               <div className="chartbox">
                 <Bar data={dsCanaisStack} options={optsStacked} />
               </div>
@@ -475,7 +607,9 @@ export default function AdminOverview() {
           {/* Tempo médio de preparo por loja */}
           <div className="grid2">
             <div className="panel">
-              <div className="panel_title">Tempo médio de preparo por loja</div>
+              <div className="panel_title">
+                Tempo médio de preparo por loja
+              </div>
               <div className="chartbox">
                 <Bar data={dsPreparo} options={{ ...opts, indexAxis: "y" }} />
               </div>
@@ -489,6 +623,21 @@ export default function AdminOverview() {
               </div>
             </div>
           </div>
+
+          {/* Tempo médio de preparo x taxa de recompra por loja */}
+          {g.preparoVsRecompraLojas?.length > 0 && (
+            <div className="panel">
+              <div className="panel_title">
+                Tempo médio de preparo × taxa de recompra por loja
+              </div>
+              <div className="chartbox">
+                <Bar
+                  data={dsTempoVsRecompra}
+                  options={optsTempoRecompra}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Heatmap */}
           {hmMesOrder.length > 0 && hmLojaOrder.length > 0 && (
@@ -514,9 +663,9 @@ export default function AdminOverview() {
                         const a =
                           hmMatrix.max > 0
                             ? Math.min(
-                                1,
-                                0.12 + (v / hmMatrix.max) * 0.88
-                              )
+                              1,
+                              0.12 + (v / hmMatrix.max) * 0.88
+                            )
                             : 0.12;
                         return (
                           <div
