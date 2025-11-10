@@ -17,10 +17,8 @@
 
   
 
+
 ## 🔎 Descrição
-
-
-## 📖 Descrição Geral do Projeto
 
 O **Cannoli Intelligence** é um sistema integrado de **Business Intelligence** e **Inteligência Artificial (IA)** desenvolvido com o objetivo de **otimizar a gestão de vendas, campanhas e clientes** no setor alimentício, especialmente voltado para restaurantes, cafeterias e redes de delivery.  
 
