@@ -133,15 +133,6 @@ const LoginPage = () => {
             onChange={(e) => setSenha(e.target.value)}
           />
 
-          <div className="row-inline">
-            <label className="remember">
-              <input type="checkbox" id="remember" /> Lembrar de mim
-            </label>
-            <a className="link" href="#">
-              Esqueceu sua senha?
-            </a>
-          </div>
-
           <button className="btn" type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </button>
