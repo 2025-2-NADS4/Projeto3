@@ -23,7 +23,7 @@ export default function CustomersAdmin() {
   const [mesFim, setMesFim] = useState("");
 
   const [storeName, setStoreName] = useState("");
-  const [lojas, setLojas] = useState([]); 
+  const [lojas, setLojas] = useState([]);
   const [lojaAtual, setLojaAtual] = useState("Todas as lojas");
 
   const [kpis, setKpis] = useState({});
@@ -71,9 +71,52 @@ export default function CustomersAdmin() {
       setErr("");
     } catch (e) {
       console.error(e);
-      setErr(e?.response?.data?.erro || "Erro ao carregar dados dos clientes (admin).");
+      setErr(
+        e?.response?.data?.erro ||
+        "Erro ao carregar dados dos clientes (admin)."
+      );
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) {
+        alert("Token não encontrado. Faça login novamente.");
+        return;
+      }
+
+      const params = {
+        storeName: storeName || undefined,
+        mesInicio: mesInicio || undefined,
+        mesFim: mesFim || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/clientes/export/pdf`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Clientes_Admin.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de clientes (admin).");
     }
   }
 
@@ -165,6 +208,7 @@ export default function CustomersAdmin() {
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Mês final</label>
                 <select
@@ -177,6 +221,23 @@ export default function CustomersAdmin() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Botão para Exportar em PDF */}
+              <div className="field">
+                <label style={{ visibility: "hidden" }}>.</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  style={{
+                    width: "auto",
+                    paddingInline: 24,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Exportar PDF
+                </button>
               </div>
             </div>
           </div>
@@ -286,9 +347,11 @@ export default function CustomersAdmin() {
           <div className="panel">
             <div className="panel_title">Aniversariantes do mês 🎂</div>
             <ul className="birthday-list">
-              {aniversariantes?.length
-                ? aniversariantes.map((n, i) => <li key={i}>{n}</li>)
-                : <li>Nenhum aniversariante encontrado</li>}
+              {aniversariantes?.length ? (
+                aniversariantes.map((n, i) => <li key={i}>{n}</li>)
+              ) : (
+                <li>Nenhum aniversariante encontrado</li>
+              )}
             </ul>
           </div>
         </div>
