@@ -43,6 +43,7 @@ export default function CampaignQueueAdmin() {
     pendentes: 0,
     enviadas: 0,
     baseLeitura: 0,
+    erros: 0,
   });
   const [statusData, setStatusData] = useState([]);
   const [mesData, setMesData] = useState([]);
@@ -86,6 +87,46 @@ export default function CampaignQueueAdmin() {
       setErr(e?.response?.data?.erro || "Erro ao carregar dados.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) {
+        alert("Token não encontrado. Faça login novamente.");
+        return;
+      }
+
+      const params = {
+        storeName: storeName || undefined,
+        mesInicio: mesInicio || undefined,
+        mesFim: mesFim || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/campaignqueue/export/pdf`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Engajamento_Mensagens_Admin.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de engajamento das mensagens.");
     }
   }
 
@@ -136,7 +177,7 @@ export default function CampaignQueueAdmin() {
 
   const chartTopStores = useMemo(
     () => ({
-      labels: topStores.map((s) => `${s.storeId} (${s.base})`),
+      labels: topStores.map((s) => `${s.storeId}`),
       datasets: [
         {
           label: "Taxa de leitura (%)",
@@ -166,6 +207,7 @@ export default function CampaignQueueAdmin() {
         <div className="wrap">
           <div className="topbar">
             <h1>Dashboard - Engajamento das Mensagens (Admin)</h1>
+
             <div className="filters">
               <div className="field">
                 <label>Estabelecimento</label>
@@ -181,6 +223,7 @@ export default function CampaignQueueAdmin() {
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Mês inicial</label>
                 <select
@@ -194,9 +237,13 @@ export default function CampaignQueueAdmin() {
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Mês final</label>
-                <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
                   {filtros.mesesDisponiveis?.map((m, i) => (
                     <option key={i} value={m}>
                       {m}
@@ -204,17 +251,33 @@ export default function CampaignQueueAdmin() {
                   ))}
                 </select>
               </div>
+
+              {/* Botão para Exportar em PDF */}
+              <div className="field">
+                <label style={{ visibility: "hidden" }}>.</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  style={{ width: "auto", paddingInline: 24, whiteSpace: "nowrap" }}
+                >
+                  Exportar PDF
+                </button>
+              </div>
             </div>
           </div>
 
           {err && <div className="errorBox">{err}</div>}
           {loading && <div className="errorBox">Carregando…</div>}
 
+          {/* KPIs */}
           <section className="kpis">
             <div className="kpi">
               <div className="kpi_title">Mensagens total</div>
               <div className="kpi_value">{kpis.total ?? "—"}</div>
-              <div className="kpi_hint">Base leitura: {kpis.baseLeitura ?? 0}</div>
+              <div className="kpi_hint">
+                Base leitura: {kpis.baseLeitura ?? 0}
+              </div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Taxa de leitura</div>
@@ -233,6 +296,7 @@ export default function CampaignQueueAdmin() {
             </div>
           </section>
 
+          {/* Gráficos */}
           <div className="grid2">
             <div className="panel">
               <div className="panel_title">Mensagens por status</div>
