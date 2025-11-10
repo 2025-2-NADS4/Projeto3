@@ -21,8 +21,8 @@ export default function CustomersRiskAdmin() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const [lojaSelecionadaId, setLojaSelecionadaId] = useState(""); 
-  const [lojaSelecionadaNome, setLojaSelecionadaNome] = useState(""); 
+  const [lojaSelecionadaId, setLojaSelecionadaId] = useState("");
+  const [lojaSelecionadaNome, setLojaSelecionadaNome] = useState("");
   const [lojas, setLojas] = useState([]);
 
   const [kpis, setKpis] = useState({
@@ -88,14 +88,52 @@ export default function CustomersRiskAdmin() {
       console.error(e);
       setErr(
         e?.response?.data?.erro ||
-          "Erro ao carregar clientes em risco (admin)."
+        "Erro ao carregar clientes em risco (admin)."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  // Ao alterar o id do estabelecimento, o valor de lojaSelecionadaId será atualizando, fazendo com que o backend seja recarregado
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) {
+        alert("Token não encontrado. Faça login novamente.");
+        return;
+      }
+
+      const params = {
+        companyId: lojaSelecionadaId || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/clientes-risco/export/pdf`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Clientes_Risco_Admin.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de clientes em risco (admin).");
+    }
+  }
+
+  // Recarrega ao trocar de estabelecimento
   useEffect(() => {
     if (lojaSelecionadaId) {
       fetchData({ companyId: lojaSelecionadaId });
@@ -129,14 +167,14 @@ export default function CustomersRiskAdmin() {
   }
 
   function handleChangeLoja(e) {
-    const id = e.target.value; 
+    const id = e.target.value;
     setLojaSelecionadaId(id);
 
     const lojaObj = lojas.find((l) => l.id === id);
     setLojaSelecionadaNome(lojaObj?.nome || "");
   }
 
-  // Funções de ordenação
+  // Ordenação
   const normalizeStr = (s) =>
     (s || "").toString().toLowerCase().trim();
 
@@ -176,8 +214,7 @@ export default function CustomersRiskAdmin() {
     return base;
   }, [listaRisco, ordenacao]);
 
-  // Gráficos 
-  // Distribuição por categoria
+  // Gráficos
   const distLabels = useMemo(
     () => Object.keys(distCategorias || {}),
     [distCategorias]
@@ -199,7 +236,6 @@ export default function CustomersRiskAdmin() {
     ],
   };
 
-  // Top 10: mais tempo sem compra
   const topLabels = useMemo(
     () => topInativos.map((c) => getNome(c)),
     [topInativos]
@@ -221,7 +257,6 @@ export default function CustomersRiskAdmin() {
     ],
   };
 
-  // Distribuição de dias sem compra (faixas)
   const histLabels = useMemo(
     () => (histDias || []).map((h) => h.faixa),
     [histDias]
@@ -290,6 +325,15 @@ export default function CustomersRiskAdmin() {
                   <option value="loja">Nome da loja</option>
                 </select>
               </div>
+
+              {/* Botão para Exportar em PDF */}
+              <button
+                type="button"
+                className="btn export-btn"
+                onClick={handleExportPdf}
+              >
+                Exportar PDF
+              </button>
             </div>
           </div>
 
@@ -362,7 +406,17 @@ export default function CustomersRiskAdmin() {
             </div>
           </div>
 
-          {/* Tabela de Lista de clientes em risco (31–60 dias) */}
+          {/* Histograma de dias sem compra */}
+          <div className="panel">
+            <div className="panel_title">
+              Distribuição de clientes por faixa de dias sem compra
+            </div>
+            <div className="chartbox">
+              <Bar data={dsHist} options={chartOpts} />
+            </div>
+          </div>
+
+          {/* Lista de clientes em risco */}
           <div className="panel">
             <div className="panel_title">
               Lista de clientes em risco (31–60 dias)
@@ -403,8 +457,8 @@ export default function CustomersRiskAdmin() {
                         <td>
                           {c.ultimaCompra
                             ? new Date(c.ultimaCompra).toLocaleDateString(
-                                "pt-BR"
-                              )
+                              "pt-BR"
+                            )
                             : "—"}
                         </td>
                       </tr>
@@ -414,7 +468,6 @@ export default function CustomersRiskAdmin() {
               </table>
             </div>
           </div>
-
         </div>
       </div>
     </div>
