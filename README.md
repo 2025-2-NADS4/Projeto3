@@ -20,7 +20,26 @@
 ## 🔎 Descrição
 
 
+## 📖 Descrição Geral do Projeto
 
+O **Cannoli Intelligence** é um sistema integrado de **Business Intelligence** e **Inteligência Artificial (IA)** desenvolvido com o objetivo de **otimizar a gestão de vendas, campanhas e clientes** no setor alimentício, especialmente voltado para restaurantes, cafeterias e redes de delivery.  
+
+Criado como projeto acadêmico do curso de **Análise e Desenvolvimento de Sistemas da FECAP**, o sistema tem como foco transformar dados operacionais em **informações estratégicas e acionáveis**, permitindo que gestores tomem decisões baseadas em métricas reais, tendências de mercado e previsões de comportamento.
+
+---
+
+## 🎯 Objetivo do Sistema
+
+A proposta central do **Cannoli Intelligence** é oferecer uma **plataforma inteligente e centralizada** onde administradores e lojistas possam:  
+- Monitorar **indicadores de performance (KPIs)** em tempo real;  
+- Acompanhar **faturamento, pedidos, ticket médio e taxa de recompra**;  
+- Gerenciar **campanhas promocionais e engajamento de clientes**;  
+- Detectar **clientes em risco de inatividade**;  
+- Receber **recomendações automáticas da IA** para melhorar desempenho e retenção.  
+
+Tudo isso através de uma interface moderna, intuitiva e visualmente agradável, construída sobre **dashboards interativos e exportáveis**.
+
+---
 ## 📂 Estrutura de Pastas 
 
 📁 **Raiz**  
