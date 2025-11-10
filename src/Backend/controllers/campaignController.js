@@ -475,6 +475,7 @@ export async function getCampanhasSugestoesAdmin(req, res) {
   }
 }
 
+// GET /api/estabelecimento/campanhas/export/pdf
 export async function exportCampanhasEstabPdf(req, res) {
   try {
     const { establishment_id } = req.user;
@@ -786,5 +787,339 @@ export async function exportCampanhasEstabPdf(req, res) {
     res
       .status(500)
       .json({ erro: "Erro ao gerar PDF de campanhas do estabelecimento." });
+  }
+}
+
+// GET /api/admin/campanhas/export/pdf
+export async function exportCampanhasAdminPdf(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res
+        .status(401)
+        .json({ erro: "Usuário não autenticado para exportar PDF." });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "admin") {
+      return res
+        .status(403)
+        .json({ erro: "Apenas administradores podem exportar este relatório." });
+    }
+
+    const { storeName, mesInicio, mesFim, campanhaId } = req.query;
+
+    let where = "WHERE 1=1";
+    const params = [];
+
+    if (storeName) {
+      where += " AND e.store_name = ?";
+      params.push(storeName);
+    }
+
+    if (campanhaId) {
+      const ehNumero = /^\d+$/.test(String(campanhaId));
+      if (ehNumero) {
+        where += " AND c.id = ?";
+        params.push(Number(campanhaId));
+      } else {
+        where += " AND c.name = ?";
+        params.push(campanhaId);
+      }
+    }
+
+    if (mesInicio) {
+      where += " AND c._mes >= ?";
+      params.push(mesInicio);
+    }
+    if (mesFim) {
+      where += " AND c._mes <= ?";
+      params.push(mesFim);
+    }
+
+    const [rows] = await db.execute(
+      `
+      SELECT 
+        c.id            AS campaignId,
+        c.name          AS nome,
+        e.store_name    AS loja,
+        c.status_desc   AS status_desc,
+        c.badge         AS badge,
+        c.createdAt     AS data_criacao
+      FROM campaign c
+      JOIN estabelecimentos e 
+        ON e.establishment_id = c.storeId
+      ${where}
+      ORDER BY c.createdAt DESC, c.id DESC
+      `,
+      params
+    );
+
+    // KPIs
+    const total = rows.length;
+
+    let ativas = 0;
+    let concluidas = 0;
+    let rascunhos = 0;
+
+    rows.forEach((c) => {
+      const s = (c.status_desc || "").toLowerCase();
+      if (s.includes("ativa")) ativas++;
+      else if (s.includes("conclu")) concluidas++;
+      else if (s.includes("rascun")) rascunhos++;
+    });
+
+    // Função pra data mais curta
+    function formatarDataHora(valor) {
+      if (!valor) return "—";
+      const d = new Date(valor);
+      if (Number.isNaN(d.getTime())) return String(valor);
+
+      const dia = String(d.getDate()).padStart(2, "0");
+      const mes = String(d.getMonth() + 1).padStart(2, "0");
+      const ano = d.getFullYear();
+      const hora = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+
+      return `${dia}/${mes}/${ano} ${hora}:${min}`;
+    }
+
+    const doc = new PDFDocument({ margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Campanhas_Admin.pdf"`
+    );
+
+    doc.pipe(res);
+
+    const contentWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+    // Cabeçalho
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text("Relatório de Campanhas (Admin)", {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(storeName || "Todas as lojas", {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.8);
+
+    // Período + campanha
+    doc
+      .fontSize(11)
+      .fillColor("#000")
+      .text(
+        `Período: ${mesInicio || "início"} até ${mesFim || "atual"} | Campanha: ${
+          campanhaId || "todas"
+        }`,
+        {
+          align: "center",
+          width: contentWidth,
+        }
+      )
+      .moveDown(0.8);
+
+    // Resumo geral
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", {
+        width: contentWidth,
+        align: "left",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 55;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, color) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor(color)
+        .lineWidth(1.1)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 8, boxY + 6, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+
+      doc
+        .fontSize(18)
+        .fillColor(color)
+        .text(String(valor), x + 8, boxY + 26, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+    };
+
+    drawKpiBox(baseX, "Total de campanhas", total, "#ff7a00");
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Campanhas ativas",
+      ativas,
+      "#28a745"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Campanhas concluídas",
+      concluidas,
+      "#007bff"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Rascunhos",
+      rascunhos,
+      "#6c757d"
+    );
+
+    doc.y = boxY + boxHeight + 40;
+
+    // Título
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Detalhamento das campanhas", {
+        width: contentWidth,
+        align: "center",
+        underline: true,
+      })
+      .moveDown(0.6);
+
+    const tableWidth = contentWidth;
+
+    // Colunas
+    const colW = [
+      contentWidth * 0.08, // ID
+      contentWidth * 0.26, // Nome
+      contentWidth * 0.20, // Loja
+      contentWidth * 0.16, // Status
+      contentWidth * 0.10, // Badge
+      contentWidth * 0.20, // Criação (MAIOR p/ caber a data)
+    ];
+
+    const colX = [];
+    let accX = doc.page.margins.left;
+    for (let i = 0; i < colW.length; i++) {
+      colX.push(accX);
+      accX += colW[i];
+    }
+
+    const headers = ["ID", "Nome", "Loja", "Status", "Badge", "Criação"];
+
+    const drawHeader = (y) => {
+      doc
+        .rect(doc.page.margins.left, y - 3, tableWidth, 20)
+        .fill("#ff7a00");
+
+      headers.forEach((h, i) => {
+        doc
+          .fillColor("#fff")
+          .fontSize(10)
+          .text(h, colX[i] + 4, y + 4, {
+            width: colW[i] - 8,
+          });
+      });
+    };
+
+    let y = doc.y;
+    drawHeader(y);
+    y += 24;
+    let altColor = false;
+
+    for (const c of rows) {
+      const dataStr = formatarDataHora(c.data_criacao);
+
+      if (y > doc.page.height - doc.page.margins.bottom - 40) {
+        doc.addPage();
+        y = doc.page.margins.top + 20;
+        drawHeader(y);
+        y += 24;
+      }
+
+      doc
+        .rect(doc.page.margins.left, y - 2, tableWidth, 18)
+        .fill(altColor ? "#f8f8f8" : "#ffffff");
+      altColor = !altColor;
+
+      doc
+        .fontSize(9)
+        .fillColor("#000")
+        .text(String(c.campaignId), colX[0] + 4, y, {
+          width: colW[0] - 8,
+        })
+        .text(c.nome || "—", colX[1] + 4, y, {
+          width: colW[1] - 8,
+        })
+        .text(c.loja || "—", colX[2] + 4, y, {
+          width: colW[2] - 8,
+        })
+        .text(c.status_desc || "—", colX[3] + 4, y, {
+          width: colW[3] - 8,
+        })
+        .text(c.badge || "—", colX[4] + 4, y, {
+          width: colW[4] - 8,
+        })
+        .text(dataStr, colX[5] + 4, y, {
+          width: colW[5] - 8,
+          lineBreak: false,
+        });
+
+      y += 18;
+    }
+
+    if (doc.y > doc.page.height - doc.page.margins.bottom - 60) {
+      doc.addPage();
+    }
+
+    const footerY = doc.page.height - doc.page.margins.bottom - 30;
+
+    doc
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, footerY)
+      .lineTo(doc.page.margins.left + contentWidth, footerY)
+      .stroke();
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de campanhas (Admin).`,
+        doc.page.margins.left,
+        footerY + 8,
+        { width: contentWidth, align: "center" }
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error("Erro em exportCampanhasAdminPdf:", err);
+    res
+      .status(500)
+      .json({ erro: "Erro ao gerar PDF de campanhas (admin)." });
   }
 }
