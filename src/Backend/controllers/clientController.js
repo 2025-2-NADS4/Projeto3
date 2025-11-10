@@ -670,3 +670,485 @@ export async function exportClientesEstabPdf(req, res) {
       .json({ erro: "Erro ao gerar PDF de clientes (estab)." });
   }
 }
+
+// GET /api/admin/clientes/export/pdf
+export async function exportClientesAdminPdf(req, res) {
+  try {
+    const { mesInicio, mesFim, companyId: companyIdQuery, storeName } = req.query;
+
+    let companyId = companyIdQuery;
+
+    // Se vier apenas storeName, buscamos o establishment_id
+    let lojaNome = storeName || "Todas as lojas";
+    if (!companyId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id, store_name
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+      if (loja) {
+        companyId = loja.establishment_id;
+        lojaNome = loja.store_name || lojaNome;
+      }
+    }
+
+    const calcularIdade = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return null;
+      const hoje = new Date();
+      let idade = hoje.getFullYear() - d.getFullYear();
+      const m = hoje.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--;
+      return idade;
+    };
+
+    const faixaEtaria = (idade) => {
+      if (idade == null || Number.isNaN(idade)) return "Não informado";
+      if (idade < 18) return "<18";
+      if (idade <= 24) return "18-24";
+      if (idade <= 34) return "25-34";
+      if (idade <= 44) return "35-44";
+      if (idade <= 54) return "45-54";
+      if (idade <= 64) return "55-64";
+      return "65+";
+    };
+
+    // Base de clientes
+    let clientes;
+    if (companyId) {
+      [clientes] = await db.execute(
+        `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
+           FROM customer
+          WHERE companyId = ?`,
+        [companyId]
+      );
+    } else {
+      [clientes] = await db.execute(
+        `SELECT id, name, status_desc, gender_clean, dateOfBirth, companyId, createdAt
+           FROM customer`
+      );
+    }
+
+    function proximoMes(yyyymm) {
+      const [ano, mes] = (yyyymm || "").split("-").map(Number);
+      if (!ano || !mes) return null;
+      const d = new Date(ano, mes - 1, 1);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    }
+
+    const inicio = mesInicio ? new Date(`${mesInicio}-01`) : null;
+    const fimExclusivo = mesFim ? proximoMes(mesFim) : null;
+
+    const clientesFiltrados = clientes.filter((c) => {
+      const d = new Date(c.createdAt);
+      if (inicio && d < inicio) return false;
+      if (fimExclusivo && d >= fimExclusivo) return false;
+      return true;
+    });
+
+    // KPIs
+    const total = clientesFiltrados.length;
+    const isAtivo = (s) => /\bativo\b/i.test(s || "");
+    const ativos = clientesFiltrados.filter((c) => isAtivo(c.status_desc)).length;
+    const inativos = total - ativos;
+    const pctAtivos = total ? Math.round((ativos / total) * 100) : 0;
+
+    // Pedidos para taxa de recompra
+    let pedidos;
+    if (companyId) {
+      [pedidos] = await db.execute(
+        `SELECT customer, COUNT(*) AS qtd
+           FROM \`order\`
+          WHERE companyId = ?
+          GROUP BY customer`,
+        [companyId]
+      );
+    } else {
+      [pedidos] = await db.execute(
+        `SELECT customer, COUNT(*) AS qtd
+           FROM \`order\`
+          GROUP BY customer`
+      );
+    }
+
+    const clientesComMaisDe1Pedido = pedidos.filter((p) => p.qtd > 1).length;
+    const taxaRecompra = total
+      ? Math.round((clientesComMaisDe1Pedido / total) * 100)
+      : 0;
+
+    // Montagem de agregados (status, gênero, faixa, aniversariantes)
+    const statusAgg = {};
+    const generoAgg = {};
+    const faixasAgg = {};
+    const aniversariantes = [];
+    const mesAtual = new Date().getMonth();
+
+    for (const c of clientesFiltrados) {
+      const s = c.status_desc || "Não informado";
+      const g = c.gender_clean || "Não informado";
+      const idade = calcularIdade(c.dateOfBirth);
+      const f = faixaEtaria(idade);
+
+      statusAgg[s] = (statusAgg[s] || 0) + 1;
+      generoAgg[g] = (generoAgg[g] || 0) + 1;
+      faixasAgg[f] = (faixasAgg[f] || 0) + 1;
+
+      if (c.dateOfBirth) {
+        const nasc = new Date(c.dateOfBirth);
+        if (nasc.getMonth() === mesAtual) aniversariantes.push(c.name);
+      }
+    }
+
+    // Montagem do PDF
+    const doc = new PDFDocument({ margin: 40 });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Clientes_Admin.pdf"`
+    );
+    doc.pipe(res);
+
+    const contentWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+    // Cabeçalho
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text("Relatório de Clientes (Admin)", doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+        underline: true,
+      })
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(lojaNome, doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        doc.page.margins.left,
+        undefined,
+        { align: "center", width: contentWidth }
+      )
+      .moveDown(0.6)
+      .fontSize(11)
+      .fillColor("#000")
+      .text(
+        `Período analisado: ${mesInicio || "início"} até ${
+          mesFim || "atual"
+        }`,
+        doc.page.margins.left,
+        undefined,
+        { align: "center", width: contentWidth }
+      )
+      .moveDown(1);
+
+    // Resumo geral (cards)
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", doc.page.margins.left, undefined, {
+        width: contentWidth,
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 60;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, hint) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor("#ff7a00")
+        .lineWidth(1.2)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 6, boxY + 6, {
+          width: boxWidth - 12,
+          align: "center",
+        });
+
+      doc
+        .fontSize(18)
+        .fillColor("#ff7a00")
+        .text(String(valor), x + 6, boxY + 22, {
+          width: boxWidth - 12,
+          align: "center",
+        });
+
+      if (hint) {
+        doc
+          .fontSize(9)
+          .fillColor("gray")
+          .text(hint, x + 6, boxY + 42, {
+            width: boxWidth - 12,
+            align: "center",
+          });
+      }
+    };
+
+    drawKpiBox(baseX, "Total de clientes", total, "");
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Clientes ativos",
+      ativos,
+      `${pctAtivos}% da base`
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Clientes inativos",
+      inativos,
+      ""
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Taxa de recompra",
+      `${taxaRecompra}%`,
+      "Clientes com +1 pedido"
+    );
+
+    doc.y = boxY + boxHeight + 30;
+
+    // Distribuição de clientes
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Distribuição de clientes", doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const colCount = 3;
+    const colGap = 10;
+    const colWidth = (contentWidth - colGap * (colCount - 1)) / colCount;
+    const startY = doc.y;
+
+    const drawTable = (x, titulo, rows) => {
+      const headerHeight = 18;
+      const rowHeight = 14;
+
+      // Título da coluna
+      doc
+        .fontSize(11)
+        .fillColor("#000")
+        .text(titulo, x, startY, {
+          width: colWidth,
+          align: "center",
+        });
+
+      let y = startY + 22;
+
+      // Cabeçalho
+      doc
+        .rect(x, y - 3, colWidth, headerHeight)
+        .fill("#ff7a00");
+      doc
+        .fontSize(9)
+        .fillColor("#fff")
+        .text("Categoria", x + 4, y, {
+          width: colWidth / 2 - 6,
+        })
+        .text("Qtde", x + colWidth / 2, y, {
+          width: colWidth / 2 - 6,
+        });
+
+      y += headerHeight + 2;
+      doc.fillColor("#000");
+
+      rows.forEach((r, idx) => {
+        const alt = idx % 2 === 0 ? "#ffffff" : "#f5f5f5";
+        doc.rect(x, y - 2, colWidth, rowHeight).fill(alt);
+
+        doc
+          .fontSize(9)
+          .fillColor("#000")
+          .text(r.label, x + 4, y, { width: colWidth / 2 - 6 })
+          .text(String(r.value), x + colWidth / 2, y, {
+            width: colWidth / 2 - 6,
+          });
+
+        y += rowHeight;
+      });
+
+      return y;
+    };
+
+    const statusRows = Object.entries(statusAgg).map(([label, value]) => ({
+      label,
+      value,
+    }));
+    const generoRows = Object.entries(generoAgg).map(([label, value]) => ({
+      label,
+      value,
+    }));
+    const faixaRows = Object.entries(faixasAgg).map(([label, value]) => ({
+      label,
+      value,
+    }));
+
+    const col1X = doc.page.margins.left;
+    const col2X = col1X + colWidth + colGap;
+    const col3X = col2X + colWidth + colGap;
+
+    const y1 = drawTable(col1X, "Por status", statusRows);
+    const y2 = drawTable(col2X, "Por gênero", generoRows);
+    const y3 = drawTable(col3X, "Por faixa etária", faixaRows);
+
+    doc.y = Math.max(y1, y2, y3) + 20;
+
+    // Aniversariantes
+    doc
+      .fontSize(12)
+      .fillColor("#ff7a00")
+      .text(
+        "Aniversariantes do mês (amostra)",
+        doc.page.margins.left,
+        undefined,
+        { width: contentWidth, align: "center", underline: false }
+      )
+      .moveDown(0.3);
+
+    const listaBday =
+      aniversariantes.length > 0
+        ? aniversariantes.join(", ")
+        : "Nenhum aniversariante encontrado.";
+
+    doc
+      .fontSize(10)
+      .fillColor("#000")
+      .text(listaBday, doc.page.margins.left, undefined, {
+        width: contentWidth,
+        align: "center",
+      })
+      .moveDown(1.2);
+
+    // Detalhamento de clientes
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Detalhamento dos clientes (amostra)", doc.page.margins.left, undefined, {
+        width: contentWidth,
+        align: "center",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    // Ordena clientes por data de cadastro desc
+    const clientesOrdenados = [...clientesFiltrados].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    const tableWidth = contentWidth;
+
+    // Largura das colunas 
+    const colW = [40, 170, 90, 80, 60, 80]; // ID, Nome, Status, Gênero, Idade, Cadastro
+    const colX = [];
+    let accX = doc.page.margins.left;
+    for (let i = 0; i < colW.length; i++) {
+      colX.push(accX);
+      accX += colW[i];
+    }
+
+    const headers = ["ID", "Nome", "Status", "Gênero", "Idade", "Cadastro"];
+
+    const drawHeader = (y) => {
+      doc.rect(doc.page.margins.left, y - 3, tableWidth, 18).fill("#ff7a00");
+      headers.forEach((h, i) => {
+        doc
+          .fontSize(9)
+          .fillColor("#fff")
+          .text(h, colX[i] + 4, y, {
+            width: colW[i] - 8,
+          });
+      });
+    };
+
+    let y = doc.y;
+    drawHeader(y);
+    y += 22;
+    let altColor = false;
+
+    for (const c of clientesOrdenados) {
+      if (y > doc.page.height - doc.page.margins.bottom - 30) {
+        doc.addPage();
+        y = doc.page.margins.top;
+        drawHeader(y);
+        y += 22;
+        altColor = false;
+      }
+
+      const idade = calcularIdade(c.dateOfBirth);
+      const idadeTexto = idade != null ? `${idade} anos` : "—";
+      const generoTexto = c.gender_clean || "Não informado";
+      const cadastro = c.createdAt
+        ? new Date(c.createdAt).toLocaleDateString("pt-BR")
+        : "—";
+
+      const rowHeight = 16;
+
+      doc
+        .rect(doc.page.margins.left, y - 2, tableWidth, rowHeight)
+        .fill(altColor ? "#f8f8f8" : "#ffffff");
+      altColor = !altColor;
+
+      doc
+        .fontSize(9)
+        .fillColor("#000")
+        .text(String(c.id), colX[0] + 4, y, { width: colW[0] - 8 })
+        .text(c.name || "—", colX[1] + 4, y, { width: colW[1] - 8 })
+        .text(c.status_desc || "—", colX[2] + 4, y, {
+          width: colW[2] - 8,
+        })
+        .text(generoTexto, colX[3] + 4, y, { width: colW[3] - 8 })
+        .text(idadeTexto, colX[4] + 4, y, { width: colW[4] - 8 })
+        .text(cadastro, colX[5] + 4, y, { width: colW[5] - 8 });
+
+      y += rowHeight;
+    }
+
+    // Rodapé
+    doc
+      .moveDown(1)
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.margins.left + contentWidth, doc.y)
+      .stroke()
+      .moveDown(0.4);
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de clientes (admin) — ${lojaNome}`,
+        doc.page.margins.left,
+        undefined,
+        { width: contentWidth, align: "center" }
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error("Erro em exportClientesAdminPdf:", err);
+    res
+      .status(500)
+      .json({ erro: "Erro ao gerar PDF de clientes (admin)." });
+  }
+}
