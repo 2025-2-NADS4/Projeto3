@@ -669,3 +669,375 @@ export async function exportCampaignQueueEstabPdf(req, res) {
     });
   }
 }
+
+// GET /api/admin/campaignqueue/export-pdf
+export async function exportCampaignQueueAdminPdf(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res
+        .status(401)
+        .json({ erro: "Usuário não autenticado para exportar PDF." });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "admin") {
+      return res
+        .status(403)
+        .json({ erro: "Apenas administradores podem exportar este relatório." });
+    }
+
+    const { lojaId: lojaIdQuery, mesInicio, mesFim, storeName } = req.query;
+    let lojaId = lojaIdQuery || null;
+
+    // Se vier storeName (nome da loja), converte para establishment_id
+    if (!lojaId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+      if (loja) {
+        lojaId = loja.establishment_id;
+      }
+    }
+
+    const { clausula, parametros } = montarWhere({
+      lojaId,
+      mesInicio,
+      mesFim,
+      somenteEnviadas: true,
+    });
+
+    // KPI total de mensagens
+    const [[kpiTotal]] = await db.execute(
+      `SELECT COUNT(*) AS total FROM campaign_queue ${clausula}`,
+      parametros
+    );
+
+    const [rowsStatus] = await db.execute(
+      `SELECT 
+          COALESCE(NULLIF(TRIM(status_desc),''),'(sem status)') AS status_desc,
+          COUNT(*) AS qtd
+       FROM campaign_queue
+       ${clausula}
+       GROUP BY status_desc
+       ORDER BY qtd DESC`,
+      parametros
+    );
+
+    // Agrupa status em buckets de leitura/erro/pendente
+    const bucket = { lida: 0, enviada: 0, pendente: 0, erro: 0, outros: 0 };
+
+    rowsStatus.forEach((r) => {
+      const s = (r.status_desc || "").toLowerCase();
+
+      if (s.includes("lida") || s.includes("read") || s.includes("visualizad")) {
+        bucket.lida += r.qtd;
+      } else if (
+        s.includes("env") ||
+        s.includes("sent") ||
+        s.includes("dispar")
+      ) {
+        bucket.enviada += r.qtd;
+      } else if (s.includes("erro") || s.includes("fail") || s.includes("falha")) {
+        bucket.erro += r.qtd;
+      } else if (
+        s.includes("pend") ||
+        s.includes("queue") ||
+        s.includes("aguard")
+      ) {
+        bucket.pendente += r.qtd;
+      } else {
+        bucket.outros += r.qtd;
+      }
+    });
+
+    const baseLeitura =
+      bucket.lida + bucket.enviada + bucket.pendente + bucket.outros;
+    const taxaLeitura = baseLeitura
+      ? Math.round((bucket.lida / baseLeitura) * 100)
+      : 0;
+
+    // Top lojas por taxa de leitura
+    const [rowsStores] = await db.execute(
+      `
+      SELECT 
+        e.store_name AS loja,
+        SUM(CASE 
+              WHEN LOWER(c.status_desc) LIKE '%lida%'
+                OR LOWER(c.status_desc) LIKE '%read%'
+                OR LOWER(c.status_desc) LIKE '%visualizad%'
+              THEN 1 ELSE 0
+            END) AS lidas,
+        SUM(CASE 
+              WHEN LOWER(c.status_desc) LIKE '%lida%'
+                OR LOWER(c.status_desc) LIKE '%read%'
+                OR LOWER(c.status_desc) LIKE '%visualizad%'
+                OR LOWER(c.status_desc) LIKE '%pend%'
+                OR LOWER(c.status_desc) LIKE '%queue%'
+                OR LOWER(c.status_desc) LIKE '%aguard%'
+                OR LOWER(c.status_desc) LIKE '%env%'
+                OR LOWER(c.status_desc) LIKE '%sent%'
+                OR LOWER(c.status_desc) LIKE '%dispar%'
+              THEN 1 ELSE 0
+            END) AS base
+      FROM campaign_queue c
+      JOIN estabelecimentos e ON e.establishment_id = c.storeId
+      ${clausula}
+      GROUP BY e.store_name
+      HAVING base > 0
+      ORDER BY (lidas / base) DESC
+      LIMIT 50
+      `,
+      parametros
+    );
+
+    // Monta estrutura de ranking com taxa calculada
+    const rankingLojas = rowsStores.map((r) => {
+      const base = Number(r.base || 0);
+      const lidas = Number(r.lidas || 0);
+      const taxa = base ? Math.round((lidas / base) * 100) : 0;
+      return {
+        loja: r.loja,
+        base,
+        lidas,
+        taxa,
+      };
+    });
+
+    // Montagem do PDF
+    const doc = new PDFDocument({ margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Engajamento_Mensagens_Admin.pdf"`
+    );
+
+    doc.pipe(res);
+
+    const contentWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+    // Cabeçalho
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text("Relatório de Engajamento de Mensagens (Admin)", {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(storeName || "Todas as lojas", {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.8);
+
+    // Período filtrado
+    doc
+      .fontSize(11)
+      .fillColor("#000")
+      .text(
+        `Período: ${mesInicio || "início"} até ${mesFim || "atual"}`,
+        {
+          align: "center",
+          width: contentWidth,
+        }
+      )
+      .moveDown(0.8);
+
+    // Resumo geral (cards)
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", {
+        width: contentWidth,
+        align: "left",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 55;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, color) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor(color)
+        .lineWidth(1.1)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 8, boxY + 6, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+
+      doc
+        .fontSize(18)
+        .fillColor(color)
+        .text(String(valor), x + 8, boxY + 26, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+    };
+
+    drawKpiBox(
+      baseX,
+      "Total de mensagens (escopo atual)",
+      Number(kpiTotal.total || 0),
+      "#ff7a00"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Taxa de leitura",
+      `${taxaLeitura}%`,
+      "#007bff"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Mensagens lidas",
+      bucket.lida,
+      "#28a745"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Mensagens com erro",
+      bucket.erro,
+      "#dc3545"
+    );
+
+    doc.y = boxY + boxHeight + 40;
+
+    // Título da tabela de ranking de lojas
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Top lojas por taxa de leitura", {
+        width: contentWidth,
+        align: "center",
+        underline: true,
+      })
+      .moveDown(0.6);
+
+    const tableWidth = contentWidth;
+
+    // Colunas
+    const colW = [
+      contentWidth * 0.45, // Loja
+      contentWidth * 0.18, // Taxa leitura
+      contentWidth * 0.18, // Base
+      contentWidth * 0.19, // Lidas
+    ];
+
+    const colX = [];
+    let accX = doc.page.margins.left;
+    for (let i = 0; i < colW.length; i++) {
+      colX.push(accX);
+      accX += colW[i];
+    }
+
+    const headers = ["Loja", "Taxa de leitura", "Base considerada", "Lidas"];
+
+    const drawHeader = (y) => {
+      doc
+        .rect(doc.page.margins.left, y - 3, tableWidth, 20)
+        .fill("#ff7a00");
+
+      headers.forEach((h, i) => {
+        doc
+          .fillColor("#fff")
+          .fontSize(10)
+          .text(h, colX[i] + 4, y + 4, {
+            width: colW[i] - 8,
+          });
+      });
+    };
+
+    let y = doc.y;
+    drawHeader(y);
+    y += 24;
+    let altColor = false;
+
+    for (const r of rankingLojas) {
+      if (y > doc.page.height - doc.page.margins.bottom - 40) {
+        doc.addPage();
+        y = doc.page.margins.top + 20;
+        drawHeader(y);
+        y += 24;
+      }
+
+      doc
+        .rect(doc.page.margins.left, y - 2, tableWidth, 18)
+        .fill(altColor ? "#f8f8f8" : "#ffffff");
+      altColor = !altColor;
+
+      doc
+        .fontSize(9)
+        .fillColor("#000")
+        .text(r.loja || "—", colX[0] + 4, y, {
+          width: colW[0] - 8,
+        })
+        .text(`${r.taxa}%`, colX[1] + 4, y, {
+          width: colW[1] - 8,
+        })
+        .text(r.base, colX[2] + 4, y, {
+          width: colW[2] - 8,
+        })
+        .text(r.lidas, colX[3] + 4, y, {
+          width: colW[3] - 8,
+        });
+
+      y += 18;
+    }
+
+    // Rodapé
+    if (doc.y > doc.page.height - doc.page.margins.bottom - 60) {
+      doc.addPage();
+    }
+
+    const footerY = doc.page.height - doc.page.margins.bottom - 30;
+
+    doc
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, footerY)
+      .lineTo(doc.page.margins.left + contentWidth, footerY)
+      .stroke();
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de engajamento de mensagens (Admin).`,
+        doc.page.margins.left,
+        footerY + 8,
+        { width: contentWidth, align: "center" }
+      );
+
+    doc.end();
+  } catch (erro) {
+    console.error("Erro em exportCampaignQueueAdminPdf:", erro);
+    return res
+      .status(500)
+      .json({ erro: "Erro ao gerar PDF de engajamento de mensagens (admin)." });
+  }
+}
