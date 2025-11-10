@@ -135,7 +135,7 @@ export default function CampaignQueueEstab() {
 
   const chartTopStores = useMemo(
     () => ({
-      labels: topStores.map((s) => `${s.storeId} (${s.base})`),
+      labels: topStores.map((s) => `${s.storeId}`),
       datasets: [
         {
           label: "Taxa de leitura (%)",
