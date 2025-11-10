@@ -58,6 +58,8 @@ export default function CampaignsAdmin() {
   const [aiErr, setAiErr] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
 
+  const [exporting, setExporting] = useState(false);
+
   async function fetchData(params = {}) {
     setLoading(true);
     try {
@@ -251,7 +253,7 @@ export default function CampaignsAdmin() {
     plugins: { legend: { labels: { color: "#cdd6e4" } } },
   };
 
-  // // Sugestão de IA vai agrupar e limitar por grupo
+  // Sugestões de IA
   const priorizar = useMemo(
     () =>
       aiSugestoes
@@ -282,6 +284,45 @@ export default function CampaignsAdmin() {
     [aiSugestoes]
   );
 
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      setExporting(true);
+      const token = localStorage.getItem("userToken");
+
+      const params = {
+        storeName: storeName || undefined,
+        mesInicio: mesInicio || undefined,
+        mesFim: mesFim || undefined,
+        campanhaId: campanhaId || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/campanhas/export/pdf`,
+        {
+          params,
+          responseType: "blob",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Campanhas_Admin.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de campanhas (admin).");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="layout">
       <Sidebar />
@@ -289,6 +330,7 @@ export default function CampaignsAdmin() {
         <div className="wrap">
           <div className="topbar">
             <h1>Dashboard - Campanhas (Admin)</h1>
+
             <div className="filters">
               <div className="field">
                 <label>Estabelecimento</label>
@@ -347,6 +389,19 @@ export default function CampaignsAdmin() {
                   ))}
                 </select>
               </div>
+
+              {/* Botão para Exportar em PDF */}
+              <div className="field">
+                <label>&nbsp;</label>
+                <button
+                  type="button"
+                  className="btn export-btn"
+                  onClick={handleExportPdf}
+                  disabled={exporting}
+                >
+                  {exporting ? "Gerando PDF..." : "Exportar PDF"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -370,7 +425,9 @@ export default function CampaignsAdmin() {
             <div className="kpi">
               <div className="kpi_title">Concluídas</div>
               <div className="kpi_value">{kpis.concluidas ?? "—"}</div>
-              <div className="kpi_hint">{kpis.concluidasPct ?? 0}% do total</div>
+              <div className="kpi_hint">
+                {kpis.concluidasPct ?? 0}% do total
+              </div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Novas no período</div>
