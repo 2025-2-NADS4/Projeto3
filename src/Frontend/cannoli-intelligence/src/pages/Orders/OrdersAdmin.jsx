@@ -93,6 +93,13 @@ export default function OrdersAdmin() {
       if (novosMeses.length) {
         setTodosMeses((prev) => Array.from(new Set([...prev, ...novosMeses])));
         setFiltros({ mesesDisponiveis: novosMeses });
+
+        if (!mesInicio) {
+          setMesInicio(novosMeses[0]);
+        }
+        if (!mesFim) {
+          setMesFim(novosMeses[novosMeses.length - 1]);
+        }
       }
 
       if (Array.isArray(lojasResp)) setLojas(lojasResp);
@@ -100,9 +107,51 @@ export default function OrdersAdmin() {
       setErr("");
     } catch (e) {
       console.error(e);
-      setErr(e?.response?.data?.erro || "Erro ao carregar dados dos pedidos (admin).");
+      setErr(
+        e?.response?.data?.erro || "Erro ao carregar dados dos pedidos (admin)."
+      );
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Exportar PDF (Admin)
+  async function handleExportPdf() {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) {
+        alert("Token não encontrado. Faça login novamente.");
+        return;
+      }
+
+      const params = {
+        storeName: storeName || undefined,
+        mesInicio: mesInicio || undefined,
+        mesFim: mesFim || undefined,
+      };
+
+      const res = await axios.get(
+        `${API_BASE}/api/admin/pedidos/export/pdf`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Relatorio_Pedidos_Admin.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar PDF de pedidos (admin).");
     }
   }
 
@@ -167,23 +216,68 @@ export default function OrdersAdmin() {
       currency: "BRL",
     });
 
-  const statusLabels = useMemo(() => (graficos.status || []).map((s) => s.status ?? "—"), [graficos.status]);
-  const statusValues = useMemo(() => (graficos.status || []).map((s) => Number(s.qtde) || 0), [graficos.status]);
+  const statusLabels = useMemo(
+    () => (graficos.status || []).map((s) => s.status ?? "—"),
+    [graficos.status]
+  );
+  const statusValues = useMemo(
+    () => (graficos.status || []).map((s) => Number(s.qtde) || 0),
+    [graficos.status]
+  );
 
-  const canalLabels = useMemo(() => (graficos.canal || []).map((c) => c.canal ?? "—"), [graficos.canal]);
-  const canalValues = useMemo(() => (graficos.canal || []).map((c) => Number(c.qtde) || 0), [graficos.canal]);
+  const canalLabels = useMemo(
+    () => (graficos.canal || []).map((c) => c.canal ?? "—"),
+    [graficos.canal]
+  );
+  const canalValues = useMemo(
+    () => (graficos.canal || []).map((c) => Number(c.qtde) || 0),
+    [graficos.canal]
+  );
 
-  const receitaLabels = useMemo(() => (graficos.receitaMes || []).map((r) => r.mes), [graficos.receitaMes]);
-  const receitaValues = useMemo(() => (graficos.receitaMes || []).map((r) => Number(r.receita) || 0), [graficos.receitaMes]);
+  const receitaLabels = useMemo(
+    () => (graficos.receitaMes || []).map((r) => r.mes),
+    [graficos.receitaMes]
+  );
+  const receitaValues = useMemo(
+    () => (graficos.receitaMes || []).map((r) => Number(r.receita) || 0),
+    [graficos.receitaMes]
+  );
 
-  const ticketCanalLabels = useMemo(() => (graficos.ticketCanal || []).map((t) => t.canal ?? "—"), [graficos.ticketCanal]);
-  const ticketCanalValues = useMemo(() => (graficos.ticketCanal || []).map((t) => Number(t.ticket_medio) || 0), [graficos.ticketCanal]);
+  const ticketCanalLabels = useMemo(
+    () => (graficos.ticketCanal || []).map((t) => t.canal ?? "—"),
+    [graficos.ticketCanal]
+  );
+  const ticketCanalValues = useMemo(
+    () =>
+      (graficos.ticketCanal || []).map(
+        (t) => Number(t.ticket_medio) || 0
+      ),
+    [graficos.ticketCanal]
+  );
 
-  const tempoLabels = useMemo(() => (graficos.tempoMedio || []).map((t) => t.tipo ?? "—"), [graficos.tempoMedio]);
-  const tempoValues = useMemo(() => (graficos.tempoMedio || []).map((t) => Number(t.tempo_medio) || 0), [graficos.tempoMedio]);
+  const tempoLabels = useMemo(
+    () => (graficos.tempoMedio || []).map((t) => t.tipo ?? "—"),
+    [graficos.tempoMedio]
+  );
+  const tempoValues = useMemo(
+    () =>
+      (graficos.tempoMedio || []).map(
+        (t) => Number(t.tempo_medio) || 0
+      ),
+    [graficos.tempoMedio]
+  );
 
-  const horaLabels = useMemo(() => (graficos.horarios || []).map((h) => String(h.hora).padStart(2, "0")), [graficos.horarios]);
-  const horaValues = useMemo(() => (graficos.horarios || []).map((h) => Number(h.qtde) || 0), [graficos.horarios]);
+  const horaLabels = useMemo(
+    () =>
+      (graficos.horarios || []).map((h) =>
+        String(h.hora).padStart(2, "0")
+      ),
+    [graficos.horarios]
+  );
+  const horaValues = useMemo(
+    () => (graficos.horarios || []).map((h) => Number(h.qtde) || 0),
+    [graficos.horarios]
+  );
 
   return (
     <div className="layout">
@@ -197,7 +291,10 @@ export default function OrdersAdmin() {
               {/* Filtro por Estabelecimento */}
               <div className="field">
                 <label>Estabelecimento</label>
-                <select value={storeName} onChange={(e) => setStoreName(e.target.value)}>
+                <select
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                >
                   <option value="">Todos</option>
                   {lojas.map((l) => (
                     <option key={l.id} value={l.nome}>
@@ -210,7 +307,10 @@ export default function OrdersAdmin() {
               {/* Filtro por Meses */}
               <div className="field">
                 <label>Mês inicial</label>
-                <select value={mesInicio} onChange={(e) => setMesInicio(e.target.value)}>
+                <select
+                  value={mesInicio}
+                  onChange={(e) => setMesInicio(e.target.value)}
+                >
                   {todosMeses.map((m, i) => (
                     <option key={i} value={m}>
                       {m}
@@ -218,9 +318,13 @@ export default function OrdersAdmin() {
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Mês final</label>
-                <select value={mesFim} onChange={(e) => setMesFim(e.target.value)}>
+                <select
+                  value={mesFim}
+                  onChange={(e) => setMesFim(e.target.value)}
+                >
                   {todosMeses.map((m, i) => (
                     <option key={i} value={m}>
                       {m}
@@ -228,8 +332,18 @@ export default function OrdersAdmin() {
                   ))}
                 </select>
               </div>
+
+              {/* Botão para Exportar em PDF */}
+              <button
+                type="button"
+                className="btn export-btn"
+                onClick={handleExportPdf}
+              >
+                Exportar PDF
+              </button>
             </div>
           </div>
+
 
           {err && <div className="errorBox">{err}</div>}
           {loading && <div className="errorBox">Carregando…</div>}
@@ -242,16 +356,22 @@ export default function OrdersAdmin() {
             </div>
             <div className="kpi">
               <div className="kpi_title">Receita total</div>
-              <div className="kpi_value">{fmtMoney(kpis.receita_total ?? 0)}</div>
+              <div className="kpi_value">
+                {fmtMoney(kpis.receita_total ?? 0)}
+              </div>
               <div className="kpi_hint">Período selecionado</div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Ticket médio (geral)</div>
-              <div className="kpi_value">{fmtMoney(kpis.ticket_medio_geral ?? 0)}</div>
+              <div className="kpi_value">
+                {fmtMoney(kpis.ticket_medio_geral ?? 0)}
+              </div>
             </div>
             <div className="kpi">
               <div className="kpi_title">Taxa de cancelamento</div>
-              <div className="kpi_value">{Number(kpis.taxa_cancelamento || 0).toFixed(1)}%</div>
+              <div className="kpi_value">
+                {Number(kpis.taxa_cancelamento || 0).toFixed(1)}%
+              </div>
               <div className="kpi_hint">Cancelados / Total</div>
             </div>
           </section>
@@ -276,7 +396,10 @@ export default function OrdersAdmin() {
           <div className="panel">
             <div className="panel_title">Receita por mês</div>
             <div className="chartbox tall">
-              <Line data={toLine(receitaLabels, receitaValues)} options={opts} />
+              <Line
+                data={toLine(receitaLabels, receitaValues)}
+                options={opts}
+              />
             </div>
           </div>
 
@@ -284,14 +407,28 @@ export default function OrdersAdmin() {
             <div className="panel">
               <div className="panel_title">Ticket médio por canal</div>
               <div className="chartbox">
-                <Bar data={toBar(ticketCanalLabels, ticketCanalValues)} options={opts} />
+                <Bar
+                  data={toBar(
+                    ticketCanalLabels,
+                    ticketCanalValues,
+                    "Ticket médio (R$)"
+                  )}
+                  options={opts}
+                />
               </div>
             </div>
 
             <div className="panel">
               <div className="panel_title">Tempo médio de preparo por tipo</div>
               <div className="chartbox">
-                <Bar data={toBar(tempoLabels, tempoValues)} options={opts} />
+                <Bar
+                  data={toBar(
+                    tempoLabels,
+                    tempoValues,
+                    "Tempo médio (min)"
+                  )}
+                  options={opts}
+                />
               </div>
             </div>
           </div>
@@ -299,7 +436,14 @@ export default function OrdersAdmin() {
           <div className="panel">
             <div className="panel_title">Pedidos por hora do dia</div>
             <div className="chartbox">
-              <Bar data={toBar(horaLabels, horaValues)} options={opts} />
+              <Bar
+                data={toBar(
+                  horaLabels,
+                  horaValues,
+                  "Quantidade de pedidos"
+                )}
+                options={opts}
+              />
             </div>
           </div>
         </div>
