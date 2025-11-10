@@ -10,7 +10,7 @@
 ## 👥 Integrantes: <a href="https://www.linkedin.com/in/alexandra-christine-silva-590092257">Alexandra Christine </a>,  <a href="https://www.linkedin.com/in/carlos-augusto-1145861a3">Carlos Augusto Santos De Almeida	</a> , <a href="https://linkedin.com/in/hebert-/">Hebert dos Reis Esteves	</a> e <a href="https://www.linkedin.com/in/jos%C3%A9-almeida-80063a256/">José Bento Almeida Gama </a>.
 
 
-## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/francisco-escobar/">Eduardo Savino</a>,<a href="https://www.linkedin.com/in/vheltai/">Lucy Mary</a>, <a href="https://www.linkedin.com/in/jefferson-o-silva/">Edson Barbeiro</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Ronaldo Araujo</a>.
+## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/jefferson-o-silva/">Edson Barbeiro</a>,<a>Eduardo Savino</a>,<a href="https://www.linkedin.com/in/vheltai/">,<a href="https://www.linkedin.com/in/francisco-escobar/">Lucy Mary</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Ronaldo Araujo</a>.
 
 ## ✏ Introdução
 ![Imagem do WhatsApp de 2025-09-21 à(s) 21 37 37_01bf9274](https://github.com/user-attachments/assets/9b7cb452-2e68-4a13-8279-b19bddc4f46d)
@@ -64,9 +64,9 @@
 
 ---
 
-## 🗂️ Descrição das Pastas
+# 🗂️ **Descrição das Pastas**
 
-### 📁 **documentos**
+## 📁 Documentos
 Contém toda a documentação geral do projeto, organizada por **entregas** e **disciplinas**.  
 Cada entrega reúne os materiais correspondentes às matérias envolvidas no projeto integrador.
 
@@ -74,17 +74,17 @@ Cada entrega reúne os materiais correspondentes às matérias envolvidas no pro
 - **Entrega 2** — Estrutura e conteúdos atualizados, seguindo o mesmo padrão da Entrega 1.  
 - **Banner_FECAP_ADS4_CANNOLI_INTELLIGENCE.pdf** — Banner oficial de apresentação do projeto.
 
----
 
-### 🖼️ **imagens**
+
+## 🖼️ Imagens
 Reúne as imagens utilizadas nos relatórios, dashboards, README e outros materiais de divulgação.
 
----
 
-### 🧠 **src**
+
+## 🧠 src
 Código-fonte principal do **projeto Cannoli Intelligence**, dividido entre **Backend (API)** e **Frontend (interface e dashboards)**.
 
-#### 👩‍💻 **Backend**
+## 👩‍💻 Backend
 Responsável por processar os dados e integrar o sistema com o banco MySQL.
 
 - **config** — Arquivos de configuração do ambiente e banco de dados.  
@@ -95,23 +95,16 @@ Responsável por processar os dados e integrar o sistema com o banco MySQL.
 - **server.js** — Ponto inicial da aplicação Node.js.  
 - **package.json** — Gerenciamento de dependências e scripts do backend.
 
-#### 🎨 **Frontend**
+## 🎨 Frontend
 Interface do sistema, responsável por exibir dashboards e relatórios gerados a partir dos dados da API.
 
 - **cannoli-intelligence** — Projeto principal do frontend com estilizações e componentes visuais.  
 
----
-
-### 📖 **README.md**
+## 📖 README.md
 Guia principal do repositório, contendo instruções de instalação, execução e explicações sobre o projeto **Cannoli Intelligence**.
 
-
-# 🧠 Cannoli Intelligence  
-Sistema Integrado de Business Intelligence e Dashboard Analítico
-
 ---
-
-## 🖥 Tecnologias Utilizadas
+### 🖥 Tecnologias Utilizadas
 
 O **Cannoli Intelligence** foi desenvolvido com uma **arquitetura moderna, escalável e modular**, combinando as melhores tecnologias do ecossistema **JavaScript** para entregar uma solução completa de **Business Intelligence e automação de dados**.
 
@@ -145,9 +138,9 @@ Toda a solução foi planejada para permitir **expansão futura**, integração 
 
 ---
 
-### ⚙️ Tecnologias e Bibliotecas
+# ⚙️ Especificações Técnicas
 
-#### 🧩 Backend  
+## 🧩 Backend  
 O núcleo da API é construído em **Node.js**, utilizando bibliotecas e frameworks que garantem segurança, performance e escalabilidade:
 
 - **Node.js:** Ambiente de execução JavaScript no servidor.  
@@ -162,7 +155,7 @@ O núcleo da API é construído em **Node.js**, utilizando bibliotecas e framewo
 - **Compression:** Compactação de respostas HTTP.  
 - **Dotenv:** Gerenciamento de variáveis de ambiente.
 
-#### 🎨 Frontend  
+## 🎨 Frontend  
 A interface foi construída em **React.js**, com foco em dashboards interativos e integração com a API:
 
 - **React.js:** Criação de componentes e interface dinâmica.  
@@ -174,11 +167,11 @@ A interface foi construída em **React.js**, com foco em dashboards interativos 
 
 ---
 
-## 📋 Pré-requisitos
+### 📋 Pré-requisitos para rodar o projeto
 
 Antes de rodar o **Cannoli Intelligence**, garanta que o ambiente esteja configurado corretamente com as ferramentas e dependências necessárias.
 
-### 🧠 Requisitos do Ambiente
+## 🧠 Requisitos do Ambiente
 - **Node.js 18+** — para execução do backend  
 - **MySQL** — banco de dados relacional  
 - **Git** — controle de versão e clonagem do repositório  
@@ -187,15 +180,14 @@ Antes de rodar o **Cannoli Intelligence**, garanta que o ambiente esteja configu
 
 ---
 
-## 🛠 Instalação e Configuração
+### 🛠 Instalação e Configuração
 
-### 1️⃣ Clonar o Repositório
+## 1️⃣ Clonar o Repositório
 ```bash
 git clone [https://github.com/seuusuario/cannoli-intelligence.git](https://github.com/2025-2-NADS4/Projeto3/)
 cd cannoli-intelligence
 
 ```
-
 
 ## 2️⃣ Instalar as Dependências
 
@@ -212,7 +204,7 @@ cd ../Frontend
 npm install
 ```
 
-## 📊 Funcionalidades Principais
+### 📊 Funcionalidades Principais
 
 - 📈 **Dashboards de performance de vendas e KPIs**  
   Exibição de indicadores estratégicos e gráficos interativos para acompanhamento de resultados em tempo real.
