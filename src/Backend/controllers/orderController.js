@@ -670,3 +670,492 @@ export async function exportPedidosEstabPdf(req, res) {
     });
   }
 }
+
+// GET /api/admin/pedidos/export/pdf
+export async function exportPedidosAdminPdf(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) {
+      return res
+        .status(401)
+        .json({ erro: "Usuário não autenticado!" });
+    }
+
+    const perfil = String(usuario.perfil || "").toLowerCase();
+    if (perfil !== "admin") {
+      return res
+        .status(403)
+        .json({ erro: "Acesso negado! Apenas administradores podem acessar." });
+    }
+
+    let { mesInicio, mesFim, companyId, storeName } = req.query;
+
+    // Nome da loja para o cabeçalho
+    let lojaNome = "Todas as lojas";
+
+    // Se veio storeName mas não companyId, converte nome -> id
+    if (!companyId && storeName) {
+      const [[loja]] = await db.execute(
+        `SELECT establishment_id, store_name
+           FROM estabelecimentos
+          WHERE store_name = ?
+          LIMIT 1`,
+        [storeName]
+      );
+
+      if (loja) {
+        companyId = loja.establishment_id;
+        lojaNome = loja.store_name || storeName;
+      } else {
+        lojaNome = storeName;
+      }
+    } else if (companyId) {
+      const [[loja]] = await db.execute(
+        `SELECT store_name
+           FROM estabelecimentos
+          WHERE establishment_id = ?
+          LIMIT 1`,
+        [companyId]
+      );
+      if (loja) {
+        lojaNome = loja.store_name || `Loja ${companyId}`;
+      } else {
+        lojaNome = `Loja ${companyId}`;
+      }
+    }
+
+    // Monta WHERE
+    const { clausula, valores } = montarWhere({ mesInicio, mesFim, companyId });
+
+    const clausulaConcluidos = clausula
+      ? `${clausula} AND status = 'CONCLUDED'`
+      : "WHERE status = 'CONCLUDED'";
+    const valoresConcluidos = [...valores];
+
+    // KPIs
+    const [[tot]] = await db.execute(
+      `SELECT COUNT(*) AS total_pedidos
+         FROM \`order\` ${clausula}`,
+      valores
+    );
+
+    const [[canc]] = await db.execute(
+      `SELECT COUNT(*) AS cancelados
+         FROM \`order\`
+        ${clausula ? clausula + " AND" : "WHERE"} status = 'CANCELED'`,
+      valores
+    );
+
+    const [[totConcl]] = await db.execute(
+      `SELECT
+          COALESCE(SUM(totalAmount),0) AS receita_total,
+          COALESCE(AVG(totalAmount),0) AS ticket_medio_geral
+         FROM \`order\` ${clausulaConcluidos}`,
+      valoresConcluidos
+    );
+
+    const totalPedidos = Number(tot?.total_pedidos || 0);
+    const cancelados = Number(canc?.cancelados || 0);
+    const receitaTotal = Number(totConcl?.receita_total || 0);
+    const ticketMedioGeral = Number(totConcl?.ticket_medio_geral || 0);
+    const taxaCancelamento = totalPedidos
+      ? (cancelados / totalPedidos) * 100
+      : 0;
+
+    // Pedidos por status
+    const [statusRows] = await db.execute(
+      `SELECT status, COUNT(*) AS qtde
+         FROM \`order\` ${clausula}
+        GROUP BY status
+        ORDER BY qtde DESC`,
+      valores
+    );
+
+    const linhasStatus = (statusRows || []).map((r) => ({
+      status: r.status || "—",
+      qtde: Number(r.qtde || 0),
+    }));
+
+    // Pedidos por canal
+    const [canalRows] = await db.execute(
+      `SELECT salesChannel AS canal, COUNT(*) AS qtde
+         FROM \`order\` ${clausula}
+        GROUP BY salesChannel
+        ORDER BY qtde DESC`,
+      valores
+    );
+
+    const linhasCanal = (canalRows || []).map((r) => ({
+      canal: r.canal || "—",
+      qtde: Number(r.qtde || 0),
+    }));
+
+    // Receita por mês (apenas concluídos)
+    const [receitaMesRows] = await db.execute(
+      `SELECT DATE_FORMAT(createdAt,'%Y-%m') AS mes,
+              COALESCE(SUM(totalAmount),0) AS receita
+         FROM \`order\` ${clausulaConcluidos}
+        GROUP BY DATE_FORMAT(createdAt,'%Y-%m')
+        ORDER BY mes`,
+      valoresConcluidos
+    );
+
+    const linhasReceitaMes = (receitaMesRows || []).map((r) => ({
+      mes: r.mes || "—",
+      receita: Number(r.receita || 0),
+    }));
+
+    // Ticket médio por canal (apenas concluídos)
+    const [ticketCanalRows] = await db.execute(
+      `SELECT salesChannel AS canal,
+              COALESCE(AVG(totalAmount),0) AS ticket_medio
+         FROM \`order\` ${clausulaConcluidos}
+        GROUP BY salesChannel
+        ORDER BY canal`,
+      valoresConcluidos
+    );
+
+    const linhasTicketCanal = (ticketCanalRows || []).map((r) => ({
+      canal: r.canal || "—",
+      ticket_medio: Number(r.ticket_medio ?? 0),
+    }));
+
+    // Tempo médio de preparo por tipo
+    const [tempoMedioRows] = await db.execute(
+      `SELECT orderType AS tipo,
+              COALESCE(AVG(preparationTime),0) AS tempo_medio
+         FROM \`order\` ${clausula}
+        GROUP BY orderType
+        ORDER BY tipo`,
+      valores
+    );
+
+    const linhasTempo = (tempoMedioRows || []).map((r) => ({
+      tipo: r.tipo || "—",
+      tempo_medio: Number(r.tempo_medio ?? 0),
+    }));
+
+    // Pedidos por hora do dia
+    const [horariosRows] = await db.execute(
+      `SELECT HOUR(createdAt) AS hora, COUNT(*) AS qtde
+         FROM \`order\` ${clausula}
+        GROUP BY HOUR(createdAt)
+        ORDER BY hora`,
+      valores
+    );
+
+    const linhasHorario = (horariosRows || []).map((r) => ({
+      hora: Number(r.hora ?? 0),
+      qtde: Number(r.qtde ?? 0),
+    }));
+
+    // Montagem do PDF
+    const fmtMoney = (v) =>
+      Number(v || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+
+    const doc = new PDFDocument({ margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Relatorio_Pedidos_Admin.pdf"`
+    );
+
+    doc.pipe(res);
+
+    const contentWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+    const periodoLabel = `Período analisado: ${
+      mesInicio || "início"
+    } até ${mesFim || "atual"}`;
+
+    // Cabeçalho principal
+    doc
+      .fontSize(20)
+      .fillColor("#ff7a00")
+      .text("Relatório de Pedidos (Admin)", doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+        underline: true,
+      })
+      .moveDown(0.3)
+      .fontSize(13)
+      .fillColor("#000")
+      .text(lojaNome, doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(0.2)
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          align: "center",
+          width: contentWidth,
+        }
+      )
+      .moveDown(0.6)
+      .fontSize(11)
+      .fillColor("#000")
+      .text(periodoLabel, doc.page.margins.left, undefined, {
+        align: "center",
+        width: contentWidth,
+      })
+      .moveDown(1);
+
+    // KPIs (cards)
+    doc
+      .fontSize(14)
+      .fillColor("#ff7a00")
+      .text("Resumo geral", doc.page.margins.left, undefined, {
+        width: contentWidth,
+        align: "left",
+        underline: true,
+      })
+      .moveDown(0.5);
+
+    const baseX = doc.page.margins.left;
+    const boxGap = 10;
+    const boxWidth = (contentWidth - boxGap * 3) / 4;
+    const boxHeight = 55;
+    const boxY = doc.y;
+
+    const drawKpiBox = (x, titulo, valor, color) => {
+      doc
+        .rect(x, boxY, boxWidth, boxHeight)
+        .strokeColor(color)
+        .lineWidth(1.2)
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .fillColor("gray")
+        .text(titulo, x + 8, boxY + 8, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+
+      doc
+        .fontSize(16)
+        .fillColor(color)
+        .text(String(valor), x + 8, boxY + 28, {
+          width: boxWidth - 16,
+          align: "center",
+        });
+    };
+
+    drawKpiBox(baseX, "Total de pedidos", totalPedidos, "#ff7a00");
+    drawKpiBox(
+      baseX + (boxWidth + boxGap),
+      "Receita total",
+      fmtMoney(receitaTotal),
+      "#28a745"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 2,
+      "Ticket médio (geral)",
+      fmtMoney(ticketMedioGeral),
+      "#007bff"
+    );
+    drawKpiBox(
+      baseX + (boxWidth + boxGap) * 3,
+      "Taxa de cancelamento",
+      `${taxaCancelamento.toFixed(1)}%`,
+      "#dc3545"
+    );
+
+    doc.y = boxY + boxHeight + 35;
+
+    // Helper para quebra de página
+    const ensureSpace = (needed = 60) => {
+      if (doc.y + needed > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+        doc.y = doc.page.margins.top;
+      }
+    };
+
+    function drawSimpleTable({ titulo, headers, rows }) {
+      if (!rows || !rows.length) return;
+
+      ensureSpace(80);
+
+      // Título da seção
+      doc
+        .moveDown(0.8)
+        .fontSize(13)
+        .fillColor("#ff7a00")
+        .text(titulo, doc.page.margins.left, undefined, {
+          width: contentWidth,
+          align: "left",
+          underline: true,
+        })
+        .moveDown(0.3);
+
+      const tableWidth = contentWidth;
+      const colCount = headers.length;
+      const colWidth = tableWidth / colCount;
+      const colX = [];
+      let accX = doc.page.margins.left;
+
+      for (let i = 0; i < colCount; i++) {
+        colX.push(accX);
+        accX += colWidth;
+      }
+
+      const headerY = doc.y + 2;
+
+      // Header
+      doc
+        .rect(doc.page.margins.left, headerY - 3, tableWidth, 20)
+        .fill("#ff7a00");
+
+      headers.forEach((h, i) => {
+        doc
+          .fillColor("#fff")
+          .fontSize(10)
+          .text(h, colX[i] + 4, headerY + 4, {
+            width: colWidth - 8,
+            align: "left",
+          });
+      });
+
+      let y = headerY + 24;
+      let altColor = false;
+
+      rows.forEach((row) => {
+        ensureSpace(30);
+        if (doc.y !== y) {
+          y = doc.y;
+          doc
+            .rect(doc.page.margins.left, y - 3, tableWidth, 20)
+            .fill("#ff7a00");
+          headers.forEach((h, i) => {
+            doc
+              .fillColor("#fff")
+              .fontSize(10)
+              .text(h, colX[i] + 4, y + 4, {
+                width: colWidth - 8,
+                align: "left",
+              });
+          });
+          y += 24;
+        }
+
+        doc
+          .rect(doc.page.margins.left, y - 2, tableWidth, 18)
+          .fill(altColor ? "#f8f8f8" : "#ffffff");
+        altColor = !altColor;
+
+        row.forEach((cell, i) => {
+          doc
+            .fontSize(9.5)
+            .fillColor("#000")
+            .text(String(cell ?? "—"), colX[i] + 4, y, {
+              width: colWidth - 8,
+              align: "left",
+            });
+        });
+
+        y += 18;
+        doc.y = y;
+      });
+    }
+
+    // Distribuição por status
+    drawSimpleTable({
+      titulo: "Distribuição de pedidos por status",
+      headers: ["Status", "Quantidade"],
+      rows: linhasStatus.map((r) => [r.status, r.qtde]),
+    });
+
+    // Pedidos por canal de venda
+    drawSimpleTable({
+      titulo: "Pedidos por canal de venda",
+      headers: ["Canal", "Quantidade"],
+      rows: linhasCanal.map((r) => [r.canal, r.qtde]),
+    });
+
+    // Receita por mês
+    drawSimpleTable({
+      titulo: "Receita por mês (pedidos concluídos)",
+      headers: ["Mês", "Receita"],
+      rows: linhasReceitaMes.map((r) => [r.mes, fmtMoney(r.receita)]),
+    });
+
+    // Ticket médio por canal
+    drawSimpleTable({
+      titulo: "Ticket médio por canal",
+      headers: ["Canal", "Ticket médio"],
+      rows: linhasTicketCanal.map((r) => [
+        r.canal,
+        fmtMoney(r.ticket_medio),
+      ]),
+    });
+
+    // Tempo médio de preparo por tipo
+    drawSimpleTable({
+      titulo: "Tempo médio de preparo por tipo de pedido",
+      headers: ["Tipo", "Tempo médio"],
+      rows: linhasTempo.map((r) => {
+        const valor = Number(r.tempo_medio ?? 0);
+        const tempoFmt = Number.isFinite(valor)
+          ? `${valor.toFixed(1)} min`
+          : "—";
+        return [r.tipo, tempoFmt];
+      }),
+    });
+
+    // Pedidos por hora do dia
+    drawSimpleTable({
+      titulo: "Pedidos por hora do dia",
+      headers: ["Hora", "Quantidade"],
+      rows: linhasHorario.map((r) => [
+        `${String(r.hora).padStart(2, "0")}:00`,
+        r.qtde,
+      ]),
+    });
+
+    // Rodapé
+    ensureSpace(40);
+    doc
+      .moveDown(1)
+      .strokeColor("#dddddd")
+      .lineWidth(0.5)
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.margins.left + contentWidth, doc.y)
+      .stroke()
+      .moveDown(0.5);
+
+    doc
+      .fontSize(10)
+      .fillColor("gray")
+      .text(
+        `Relatório gerado automaticamente pelo módulo de pedidos (admin) — ${lojaNome}`,
+        doc.page.margins.left,
+        undefined,
+        {
+          width: contentWidth,
+          align: "center",
+        }
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error("Erro em exportPedidosAdminPdf:", err);
+    if (!res.headersSent) {
+      return res
+        .status(500)
+        .json({ erro: "Erro ao gerar PDF de pedidos (admin)." });
+    }
+    try {
+      res.end();
+    } catch (_) {}
+  }
+}
