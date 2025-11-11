@@ -347,7 +347,7 @@ Essas recomendações são exibidas em tempo real no painel, com base em **model
 ### 🧩 **Exportação e Relatórios**
 Todos os painéis do sistema permitem exportação em:
  
-- **📊 Excel:** para análises avançadas e armazenamento offline.  
+- **📃 PDF:** para análises e armazenamento offline. 
 
 A exportação é feita via **PDFKit** e **xlsx**, garantindo formatação consistente e visual profissional.
 
@@ -357,6 +357,12 @@ A exportação é feita via **PDFKit** e **xlsx**, garantindo formatação consi
 O sistema de dashboards do **Cannoli Intelligence** une **análises descritivas, diagnósticas e preditivas**, oferecendo aos administradores e lojistas uma visão completa da performance, comportamento do consumidor e recomendações inteligentes para potencializar resultados.
 
 ## 🎥 Demonstrações dos Dashboards
+
+
+
+https://github.com/user-attachments/assets/9c84ab16-6b27-48f9-a457-0aeab2810bfb
+
+
 
 
 
