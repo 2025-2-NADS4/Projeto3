@@ -90,6 +90,7 @@ Cada entrega reúne os materiais correspondentes às matérias envolvidas no pro
 - **Entrega 1** — Primeira versão do projeto, com relatórios iniciais de cada disciplina.  
 - **Entrega 2** — Estrutura e conteúdos atualizados, seguindo o mesmo padrão da Entrega 1.  
 - **Banner_FECAP_ADS4_CANNOLI_INTELLIGENCE.pdf** — Banner oficial de apresentação do projeto.
+- **Documento - Projeto de Extensão - Cannoli Intelligence.pdf** — Documento final do projeto de extensão.
 
 
 
