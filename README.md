@@ -57,7 +57,7 @@ Tudo isso através de uma interface moderna, intuitiva e visualmente agradável,
 │   │   └── 📁 IA  
 │   │  
 │   └── 📄 **Banner_FECAP_ADS4_CANNOLI_INTELLIGENCE.pdf**  
-│  
+│   └── 📄 **Documento - Projeto de Extensão - Cannoli Intelligence.pdf** 
 ├── 📁 **imagens**  
 │   📄 Arquivos de imagem utilizados em relatórios e README  
 │  
