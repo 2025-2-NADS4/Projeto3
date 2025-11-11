@@ -470,5 +470,32 @@ src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="">
 </a>
 </p>
 
+## 📚 Referências
 
+**NIST – National Institute of Standards and Technology.**  
+*Framework for Improving Critical Infrastructure Cybersecurity.* Version 1.1, Gaithersburg, 2018.  
+Disponível em: [https://www.nist.gov/cyberframework](https://www.nist.gov/cyberframework).
+
+**PYTHON SOFTWARE FOUNDATION.**  
+*Python 3 Documentation.* Disponível em: [https://docs.python.org/3/](https://docs.python.org/3/). 
+
+**NODE.JS FOUNDATION.**  
+*Node.js Documentation.* Disponível em: [https://nodejs.org/en/docs](https://nodejs.org/en/docs).
+
+**EXPRESSJS.**  
+*Express – Fast, unopinionated, minimalist web framework for Node.js.*  
+Disponível em: [https://expressjs.com/](https://expressjs.com/).
+
+**MYSQL.**  
+*MySQL 8.0 Reference Manual.* Oracle Corporation, 2024.  
+Disponível em: [https://dev.mysql.com/doc/](https://dev.mysql.com/doc/). 
+
+**CHART.JS.**  
+*Chart.js Documentation.* Disponível em: [https://www.chartjs.org/docs/](https://www.chartjs.org/docs/).
+
+**PANDAS DEVELOPMENT TEAM.**  
+*pandas: powerful Python data analysis toolkit.* Version 2.2, 2025.  
+Disponível em: [https://pandas.pydata.org/](https://pandas.pydata.org/)
+
+---
 
