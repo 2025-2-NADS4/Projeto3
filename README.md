@@ -268,7 +268,7 @@ PORT=3000
 
 ```bash
 cd src/Backend
-npm start
+npm run dev
 ```
 
 
