@@ -398,7 +398,7 @@ Todos os painéis do sistema permitem exportação em:
  
 - **📃 PDF:** para análises e armazenamento offline. 
 
-A exportação é feita via **PDFKit** e **xlsx**, garantindo formatação consistente e visual profissional.
+A exportação é feita via **PDFKit**, garantindo formatação consistente e visual profissional.
 
 ---
 
