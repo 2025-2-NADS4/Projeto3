@@ -37,7 +37,6 @@ A proposta central do **Cannoli Intelligence** é oferecer uma **plataforma inte
 
 Tudo isso através de uma interface moderna, intuitiva e visualmente agradável, construída sobre **dashboards interativos e exportáveis**.
 
----
 ## 📂 Estrutura de Pastas 
 
 📁 **Raiz**  
@@ -55,33 +54,32 @@ Tudo isso através de uma interface moderna, intuitiva e visualmente agradável,
 │   │   ├── 📁 Empreendedorismo  
 │   │   ├── 📁 Gestão de Projetos  
 │   │   └── 📁 IA  
-│   └── 📄 **Banner_FECAP_ADS4_CANNOLI_INTELLIGENCE.pdf**  
+│   │  
+│   ├── 📄 **Banner_FECAP_ADS4_CANNOLI_INTELLIGENCE.pdf**  
 │   └── 📄 **Documento - Projeto de Extensão - Cannoli Intelligence.pdf**  
 │  
 ├── 📁 **imagens**  
-│   📄 Arquivos de imagem utilizados em relatórios e README  
+│   └── 📄 Arquivos de imagem utilizados em relatórios e README  
 │  
 ├── 📁 **src**  
 │   ├── 👩‍💻 📁 **Backend**  
 │   │   ├── 📁 config  
 │   │   ├── 📁 controllers  
 │   │   ├── 📁 middlewares  
-│   │   ├── 📁 ml
-│   │   └── 📁 routes  
-│   │   ├── 📄 server.js 
-|   |   ├── 📄 backend.txt
-|   |   ├── 📄 cannoli.sql
+│   │   ├── 📁 ml  
+│   │   ├── 📁 routes  
+│   │   ├── 📄 server.js  
+│   │   ├── 📄 backend.txt  
+│   │   ├── 📄 cannoli.sql  
 │   │   ├── 📄 package.json  
 │   │   └── 📄 package-lock.json  
 │   │  
 │   └── 🎨 📁 **Frontend**  
-│       └── 📁 cannoli-intelligence  
+│       ├── 📁 cannoli-intelligence  
 │       └── 📄 frontend.txt  
 │  
 ├── 📄 **.gitignore**  
 └── 📄 **README.md**
-
----
 
 # 🗂️ **Descrição das Pastas**
 
