@@ -66,9 +66,11 @@ Tudo isso através de uma interface moderna, intuitiva e visualmente agradável,
 │   │   ├── 📁 config  
 │   │   ├── 📁 controllers  
 │   │   ├── 📁 middlewares  
-│   │   ├── 📁 models  
+│   │   ├── 📁 ml
 │   │   └── 📁 routes  
-│   │   ├── 📄 server.js  
+│   │   ├── 📄 server.js 
+|   |   ├── 📄 backend.txt
+|   |   ├── 📄 cannoli.sql
 │   │   ├── 📄 package.json  
 │   │   └── 📄 package-lock.json  
 │   │  
@@ -220,6 +222,55 @@ npm install
 cd ../Frontend
 npm install
 ```
+## 3️⃣ Configuração do Banco de Dados
+
+O **Cannoli Intelligence** utiliza o **MySQL** como banco de dados principal.  
+Para garantir a correta conexão entre o backend e o banco, é necessário configurar o arquivo **.env** com as variáveis de ambiente do projeto.
+### ⚙️ Exemplo de Configuração do `.env`
+
+```env
+# 🔧 Configuração do Banco de Dados
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=senha123
+DB_NAME=cannoli_db
+
+# 🔑 Autenticação e Segurança
+JWT_SECRET=chave_super_segura
+
+# 🌐 Porta do Servidor
+PORT=3000
+```
+
+## 🧩 Descrição das Variáveis
+
+| Variável | Descrição |
+|-----------|------------|
+| **DB_HOST** | Endereço do servidor MySQL (ex: `localhost` ou IP do servidor remoto). |
+| **DB_USER** | Usuário do banco de dados MySQL que terá permissão de acesso. |
+| **DB_PASS** | Senha de autenticação do usuário do banco de dados. |
+| **DB_NAME** | Nome do banco de dados utilizado pelo sistema (ex: `cannoli_db`). |
+| **JWT_SECRET** | Chave secreta usada para gerar e validar tokens de autenticação (JWT). |
+| **PORT** | Porta na qual o servidor Node.js será executado (padrão: `3000`). |
+
+---
+
+## 🧠 Boas Práticas de Segurança
+
+- 🚫 **Nunca** envie o arquivo `.env` para o GitHub — ele deve estar listado no arquivo `.gitignore`.  
+- 🔒 Utilize **senhas seguras** e evite valores padrão (como `root` / `123`).  
+- 🔄 Em ambientes de produção, configure as variáveis diretamente na hospedagem (**Azure** ou **Render**).  
+- 🧰 Realize **backups regulares** do banco de dados para evitar perda de informações.  
+
+---
+
+💡 **Após configurar o arquivo `.env`**, execute o backend normalmente com o comando:
+
+```bash
+cd src/Backend
+npm start
+```
+
 
 ### 📊 Funcionalidades Principais
 
@@ -356,6 +407,12 @@ A exportação é feita via **PDFKit** e **xlsx**, garantindo formatação consi
 💡 **Em resumo:**  
 O sistema de dashboards do **Cannoli Intelligence** une **análises descritivas, diagnósticas e preditivas**, oferecendo aos administradores e lojistas uma visão completa da performance, comportamento do consumidor e recomendações inteligentes para potencializar resultados.
 
+<p align="center">
+  <a href="https://cannoli-intelligence.netlify.app" target="_blank" style="text-decoration:none;">
+    <img src="https://img.shields.io/badge/Clique%20aqui%20para%20acessar%20no%20nosso%20site-FF7F00?style=for-the-badge&logoColor=white" alt="Clique aqui para acessar no nosso site">
+  </a>
+</p>
+
 ## 🎥 Demonstrações dos Dashboards
 
 ### 🎥 Dashboard visão dos clientes
@@ -415,5 +472,5 @@ src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="">
 </a>
 </p>
 
-## 🎓 Referências
+
 
