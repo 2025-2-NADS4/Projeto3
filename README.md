@@ -420,10 +420,8 @@ O sistema de dashboards do **Cannoli Intelligence** une **análises descritivas,
 
 
 ### 🎥 Dashboard visão dos administradores
-![Videoadmin-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/1e916608-7aef-4ab1-bc73-dc36a0bcc4e4)
 
-
-
+![Videoadmin-ezgif com-video-to-gif-converter (1)](https://github.com/user-attachments/assets/fc90bf25-b645-43e6-b1ae-0744bb27ccf6)
   
 ## 🗃 Histórico de lançamentos
 * 0.1.1 - 22/09/2025
