@@ -358,12 +358,13 @@ O sistema de dashboards do **Cannoli Intelligence** une **análises descritivas,
 
 ## 🎥 Demonstrações dos Dashboards
 
+### 🎥 Dashboard visão dos clientes
+![DashboardsClientes-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/e0803fe5-b045-429a-859b-1bd0c4585f9a)
 
 
-https://github.com/user-attachments/assets/9c84ab16-6b27-48f9-a457-0aeab2810bfb
 
-
-
+### 🎥 Dashboard visão dos administradores
+![Videoadmin-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/1e916608-7aef-4ab1-bc73-dc36a0bcc4e4)
 
 
 
