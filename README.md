@@ -10,7 +10,7 @@
 ## 👥 Integrantes: <a href="https://www.linkedin.com/in/alexandra-christine-silva-590092257">Alexandra Christine </a>,  <a href="https://www.linkedin.com/in/carlos-augusto-1145861a3">Carlos Augusto Santos De Almeida	</a> , <a href="https://linkedin.com/in/hebert-/">Hebert dos Reis Esteves	</a> e <a href="https://www.linkedin.com/in/jos%C3%A9-almeida-80063a256/">José Bento Almeida Gama </a>.
 
 
-## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/jefferson-o-silva/">Edson Barbeiro</a>,<a>Eduardo Savino</a>,<a href="https://www.linkedin.com/in/vheltai/">,<a href="https://www.linkedin.com/in/francisco-escobar/">Lucy Mary</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Ronaldo Araujo</a>.
+## 👨‍🏫 Professores Orientadores:<a href="https://www.linkedin.com/in/aimarlopes/">Aimar Martins Lopes</a>,<a href="https://www.linkedin.com/in/jefferson-o-silva/">Edson Barbeiro</a>,<a href="https://www.linkedin.com/in/jefferson-o-silva/">Eduardo Savino</a>,<a href="https://www.linkedin.com/in/francisco-escobar/">Lucy Mary</a> e <a href="https://www.linkedin.com/in/jefferson-o-silva/">Ronaldo Araujo</a>.
 
 ## ✏ Introdução
 ![Imagem do WhatsApp de 2025-09-21 à(s) 21 37 37_01bf9274](https://github.com/user-attachments/assets/9b7cb452-2e68-4a13-8279-b19bddc4f46d)
@@ -346,7 +346,7 @@ Essas recomendações são exibidas em tempo real no painel, com base em **model
 
 ### 🧩 **Exportação e Relatórios**
 Todos os painéis do sistema permitem exportação em:
-- **📄 PDF:** com gráficos, métricas e data de geração.  
+ 
 - **📊 Excel:** para análises avançadas e armazenamento offline.  
 
 A exportação é feita via **PDFKit** e **xlsx**, garantindo formatação consistente e visual profissional.
